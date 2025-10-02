@@ -1,4 +1,4 @@
-#python bin/doPlots.py FCCeeAnalyses/top/template-analysis/plots.py
+#python bin/doPlots.py FCCeeAnalyses/top/template-analysis/plots_jetE.py
 
 import ROOT
 
