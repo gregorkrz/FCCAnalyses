@@ -38,7 +38,7 @@ intLumi = 5000000  # 5 /ab
 # Define some binning for various histograms
 bins_count_jets = (5, 0, 5)
 
-Rs = [2, 4, 5, 8, 10, 15]
+Rs = [2, 4, 5, 8, 10, 15, 20, 30]
 
 # build_graph function that contains the analysis logic, cuts and histograms (mandatory)
 def build_graph(df, dataset):

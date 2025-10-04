@@ -1,3 +1,6 @@
+# Plotting without the FCCsw
+# python3 plotting.py
+
 import ROOT
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,9 +8,9 @@ import matplotlib.pyplot as plt
 ROOT.gROOT.SetBatch(True)  # don’t pop up ROOT canvases
 
 # open your file
-f = ROOT.TFile.Open("myfile.root")
+f = ROOT.TFile.Open("../../idea_fullsim/fast_sim/histograms/p8_ee_WW_ecm365_fullhad_AK.root")
 
-# mapping of histogram name → legend label
+# Mapping of histogram name → legend label
 hists = {
     "h_ratio_2":  "AK2",
     "h_ratio_4":  "AK4",
@@ -15,6 +18,8 @@ hists = {
     "h_ratio_8":  "AK8",
     "h_ratio_10": "AK10",
     "h_ratio_15": "AK15",
+    "h_ratio_20": "AK20",
+    "h_ratio_30": "AK30"
 }
 
 def hist1_to_np(h):
@@ -34,12 +39,15 @@ for name, label in hists.items():
     edges, y = hist1_to_np(h)
     plt.step(edges, np.r_[y, y[-1]], where="post", label=label)
 
+
 plt.xlabel("x")
 plt.ylabel("Entries")
 plt.title("Comparison of ratios")
 plt.legend()
 plt.grid(True, alpha=0.3)
+# log y scale
+plt.yscale("log")
 plt.tight_layout()
-plt.show()
-
+plt.savefig("../../idea_fullsim/fast_sim/histograms_view/p8_ee_WW_ecm365_fullhad_AK.pdf")
 f.Close()
+
