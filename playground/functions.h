@@ -321,7 +321,6 @@ Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps) {
 
         // neutral
         for (auto & lv_neutral_ : lv_neutral) {
-
             double dr = coneIsolation::deltaR(lv_reco_.Eta(), lv_reco_.Phi(), lv_neutral_.Eta(), lv_neutral_.Phi());
             if(dr > dr_min && dr < dr_max) sumNeutral += lv_neutral_.P();
         }

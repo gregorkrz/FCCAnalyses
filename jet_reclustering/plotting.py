@@ -4,7 +4,6 @@
 import ROOT
 import numpy as np
 import matplotlib.pyplot as plt
-
 ROOT.gROOT.SetBatch(True)  # don’t pop up ROOT canvases
 
 # open your file
@@ -12,6 +11,7 @@ f = ROOT.TFile.Open("../../idea_fullsim/fast_sim/histograms/p8_ee_WW_ecm365_full
 # Get list of columns and print their titles
 
 print("---------")
+
 # Mapping of histogram name → legend label
 hists = {
     "h_ratio_2":  "AK2",

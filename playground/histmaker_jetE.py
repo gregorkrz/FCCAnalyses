@@ -6,7 +6,7 @@ processList = {
     # 'p8_ee_ZZ_ecm240':{'fraction':1},
     'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
     "p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
-    "p8_ee_ZH_llbb_ecm365": {'fraction': 1},
+    #"p8_ee_ZH_llbb_ecm365": {'fraction': 1},
     "p8_ee_ZH_6jet_ecm365": {'fraction': 1},
     "p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
     # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
@@ -61,9 +61,9 @@ def build_graph(df, dataset):
     histograms = []
     for i in range(len(bins) - 1):
         df = df.Define("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "FCCAnalyses::ZHfunctions::filter_number_by_bin(ratio_jet_energies_fancy, genjet_energies_matched, {}, {})".format(bins[i], bins[i + 1]))
-        hh = df.Histo1D(("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "Ereco/Etrue;Ereco/Etrue;Events", 150, 0.4, 1.2), "binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]))
+        hh = df.Histo1D(("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "Ereco/Etrue;Ereco/Etrue;Events", 300, 0.8, 1.2), "binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]))
         histograms.append(hh)
-    h_fancy = df.Histo1D(("h_fancy", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 200, 0.4, 2.0), "ratio_jet_energies_fancy")
+    h_fancy = df.Histo1D(("h_fancy", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 150, 0.8, 1.2), "ratio_jet_energies_fancy")
     h_Ejet = df.Histo1D(("h_E_all_jets", "E of jet;E_reco;Events", 100, 0, 300), "JetDurhamN4.energy")
     h_Egenjet = df.Histo1D(("h_E_all_genjets", "E of genjet;E_gen;Events", 100, 0, 300), "GenJetDurhamN4.energy")
     # count -1s  in ratio_jet_energies_fancy
