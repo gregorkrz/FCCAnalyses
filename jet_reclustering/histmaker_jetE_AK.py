@@ -46,16 +46,18 @@ def build_graph(df, dataset):
     df = df.Define("weight", "1.0")
     weightsum = df.Sum("weight")
     #df = df.Define("n_jets", "Jet.size()")
-    # compute energy of hardest jet over energy of hardest genjet
+    # compute energy of hardest jet over enprint(ergy of hardest genjet
     results = []
     for r in Rs:
         # list columns in df and print them
-        print("Columns in df for R={}: {}".format(r, df.GetColumnNames()))
+        #print("Columns in df for R={}: {}".format(r, df.GetColumnNames()))
 
-        df = df.Define(f"deltaR_matching_{r}", f"FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping(RecoJetInclusiveAK{r}, GenJetInclusiveAK{r})")
+        df = df.Define(f"deltaR_matching_{r}", f"FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping(RecoJetInclusiveAK{r}, GenJetInclusiveAK{r}, {r/10})")
         df = df.Define(f"matching_processing_{r}", f"FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(deltaR_matching_{r}, RecoJetInclusiveAK{r}, GenJetInclusiveAK{r})")
         df = df.Define(f"jet_E_reco_over_true_{r}", f"matching_processing_{r}.first")
         df = df.Define(f"E_unmatched_{r}", f"matching_processing_{r}.second")
+        df = df.Define("n_jets_{}".format(r), "RecoJetInclusiveAK{}.size()".format(r))
+        df = df.Define("n_genjets_{}".format(r), "GenJetInclusiveAK{}.size()".format(r))
         #df = df.Define("h_E_ratio_{}".format(r), f"FCCAnalyses::ZHfunctions::get_histo_E_ratio(jet_E_reco_over_true_{r})".format(r))
         #df = df.Define("E_of_unmatched_reco_jets_{}".format(r),
         #                  f"FCCAnalyses::ZHfunctions::get_histo_E_unmatched(E_unmatched_{r})".format(r))
@@ -63,6 +65,10 @@ def build_graph(df, dataset):
         h_unmatched = df.Histo1D((f"h_unmatched_{r}",
                                   "E of unmatched reco jets;E_reco;Events", 100, 0, 300),
                                   f"E_unmatched_{r}")
+        h_njets = df.Histo1D((f"h_njets_{r}", "Number of jets;N_jets;Events", 10, 0, 10), f"n_jets_{r}")
+        h_ngenjets = df.Histo1D((f"h_ngenjets_{r}", "Number of genjets;N_genjets;Events", 10, 0, 10), f"n_genjets_{r}")
+        results.append(h_njets)
+        results.append(h_ngenjets)
         results.append(h_ratio)
         results.append(h_unmatched)
     #h_fancy = df.Histo1D(("h_fancy", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 150, 0.4, 1.2), "ratio_jet_energies_fancy")

@@ -11,7 +11,7 @@
 #include "edm4hep/MCParticleData.h"
 #include "edm4hep/ParticleIDData.h"
 #include "ReconstructedParticle2MC.h"
-
+#include <tuple>
 
 namespace FCCAnalyses { namespace ZHfunctions {
 
@@ -32,12 +32,12 @@ std::vector<float> sort_jet_energies(Vec_rp jets) { // return a vector<float> of
     return energies;
 }
 
-std::vector<int> get_reco_truth_jet_mapping(Vec_rp reco_jets, Vec_rp gen_jets) {
+std::vector<int> get_reco_truth_jet_mapping(Vec_rp reco_jets, Vec_rp gen_jets, float dR) {
 // match reco jets to gen jets, return a vector<int> with the index of the matched gen jet for each reco jet, -1 if no match found
     std::vector<int> result;
     for(auto & rj : reco_jets) {
         int idx = -1;
-        float dR_min = 0.4; // Matching cone
+        float dR_min = dR; // Matching cone
         TLorentzVector rj_lv;
         rj_lv.SetXYZM(rj.momentum.x, rj.momentum.y, rj.momentum.z, rj.mass);
         for(size_t i = 0; i < gen_jets.size(); ++i) {
@@ -55,20 +55,41 @@ std::vector<int> get_reco_truth_jet_mapping(Vec_rp reco_jets, Vec_rp gen_jets) {
     return result;
 }
 
-pair<vector<float>, vector<float>> get_energy_ratios_for_matched_jets(vector<int> reco_to_gen_matching, Vec_rp reco_jets, Vec_rp gen_jets) { // return a vector<float> of the energy ratios of matched jets
+vector<float> filter_number_by_bin(vector<float> values, vector<float> binning, float lower_bound, float upper_bound) { // return a vector<float> of the values that fall within the specified bin range
+    std::vector<float> result;
+    // values and binning have the same size. go through binning and, if the current value is within the specified range, add it to the result
+    if(values.size() != binning.size()) {
+        std::cout << "ERROR: filter_number_by_bin, values and binning must be of same size." << values.size() << "  " << binning.size() << std::endl;
+        exit(1);
+    }
+    //cout << "-----" << endl;
+    //return result;
+    for (size_t i = 0; i < values.size(); ++i) {
+        //cout << "binning[" << i << "] = " << binning[i] << ", values[" << i << "] = " << values[i] << std::endl;
+        if (binning[i] >= lower_bound && binning[i] < upper_bound && values[i] != -1) {
+            result.push_back(values[i]);
+        }
+    }
+    return result;
+}
+
+tuple<vector<float>, vector<float>, vector<float>> get_energy_ratios_for_matched_jets(vector<int> reco_to_gen_matching, Vec_rp reco_jets, Vec_rp gen_jets) { // return a vector<float> of the energy ratios of matched jets
     std::vector<float> result;
     std::vector<float> recojetE;
     vector<float> unmatched_reco_jet_E;
+    vector<float> genjetE;
     for(size_t i = 0; i < reco_to_gen_matching.size(); ++i) {
         int idx = reco_to_gen_matching[i];
         if(idx >= 0 && idx < gen_jets.size()) {
             float ratio = reco_jets[i].energy / gen_jets[idx].energy;
             result.push_back(ratio);
             recojetE.push_back(reco_jets[i].energy);
+            genjetE.push_back(gen_jets[idx].energy);
         }
         else {
             result.push_back(-1);
-            recojetE.push_back(reco_jets[i].energy);
+            //recojetE.push_back(reco_jets[i].energy);
+            genjetE.push_back(-1);
             unmatched_reco_jet_E.push_back(reco_jets[i].energy);
         }
     }
@@ -77,12 +98,13 @@ pair<vector<float>, vector<float>> get_energy_ratios_for_matched_jets(vector<int
     for(size_t i = 0; i < indices.size(); ++i) indices[i] = i;
     std::sort(indices.begin(), indices.end(), [&result](size_t a, size_t b) { return result[2*a+1] > result[2*b+1]; });
     std::vector<float> sorted_result;
+    vector<float> sorted_genjetE;
     for(size_t i = 0; i < indices.size(); ++i) {
         sorted_result.push_back(result[2*indices[i]]);
+        sorted_genjetE.push_back(genjetE[2*indices[i]]);
     }
-    return make_pair(sorted_result, unmatched_reco_jet_E);
+    return tuple(sorted_result, unmatched_reco_jet_E, sorted_genjetE);
 }
-
 
 std::vector<float> elementwise_divide(vector<float> v1, vector<float> v2) { // return a vector<float> of the element-wise division of two vectors
     std::vector<float> result;
