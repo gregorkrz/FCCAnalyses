@@ -5,7 +5,13 @@ from scipy.optimize import curve_fit
 from copy import copy
 
 ###########################################################################################
-bins = [0, 50, 100, 150, 200]
+
+def neg_format(number):
+    # put n5 for -5
+    if number < 0:
+        return "n{}".format(abs(number))
+    else:
+        return str(number)
 
 processList = {
     # 'p8_ee_ZZ_ecm240':{'fraction':1},
@@ -20,7 +26,7 @@ processList = {
     #'p8_ee_ZH_Zmumu_ecm240': {'fraction': 1, 'crossSection': 0.201868 * 0.034},
 }
 ############################################################################################
-def get_result_for_process(procname):
+def get_result_for_process(procname, bins = [0, 50, 100, 150, 200], suffix=""):
     f = ROOT.TFile.Open("../../idea_fullsim/fast_sim/histograms/{}.root".format(procname))
     fig_hist, ax_hist = plt.subplots(figsize=(5, 5))
     def get_std68(theHist, bin_edges, percentage=0.683, epsilon=0.001):
@@ -53,11 +59,11 @@ def get_result_for_process(procname):
                         high = points[j][0]
                         width = wx
         if low == 0.2 and high == 1.0:
-            # didnt fit well, try mean and stdev
+            # Didn't fit well, try mean and stdev
             # compute the stdev from the histogram
             std68 = 0.0
             #print(theHist)
-            print("fitting didnt work")
+            print("Fitting didnt work")
             mean = np.sum([(0.5 * (bin_edges[i] + bin_edges[i + 1])) * theHist[i] * (bin_edges[i + 1] - bin_edges[i]) for i in range(len(theHist))])
             print("MEAN", mean)
             std68 = np.sqrt(np.sum([((0.5 * (bin_edges[i] + bin_edges[i + 1])) - mean) ** 2 * theHist[i] * (bin_edges[i + 1] - bin_edges[i]) for i in range(len(theHist))]))
@@ -66,6 +72,8 @@ def get_result_for_process(procname):
         return 0.5 * (high - low), low, high, MPV
 
     def root_file_get_hist_and_edges(root_file, hist_name):
+        # Print available root column names
+        print("Available histograms:", [key.GetName() for key in root_file.GetListOfKeys()])
         h = root_file.Get(hist_name)
         if not h:
             print(f"Warning: histogram {hist_name} not found")
@@ -79,7 +87,7 @@ def get_result_for_process(procname):
     bin_mid_points = []
     sigmaEoverE = []
     for i in range(len(bins) - 1):
-        hist_name = f"binned_E_reco_over_true_{bins[i]}_{bins[i+1]}"
+        hist_name = f"binned_E_reco_over_true_{suffix}{neg_format(bins[i])}_{neg_format(bins[i+1])}"
         y, edges = root_file_get_hist_and_edges(f, hist_name)
         if y is None:
             print(f"Skipping bin [{bins[i]}, {bins[i+1]}] due to missing histogram")
@@ -122,3 +130,21 @@ ax.set_title('Jet Energy Resolution vs Jet Energy')
 ax.grid(True, alpha=0.3)
 fig.tight_layout()
 fig.savefig("../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/jet_energy_resolution_data_points.pdf")
+
+fig, ax = plt.subplots(figsize=(8, 6))
+for process in sorted(list(processList.keys())):
+    bin_mid_points, sigmaEoverE, fig_histograms = get_result_for_process(process, bins=[-5, -2, -1, 0, 1, 2, 5], suffix="eta_")
+    fig_histograms.tight_layout()
+    fig_histograms.savefig(
+        "../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/bins_eta_{}.pdf".format(process)
+    )
+    ax.plot(bin_mid_points, sigmaEoverE, ".--", label=process)
+ax.legend()
+ax.set_xlabel('Jet Eta [GeV]')
+ax.set_ylabel(r'$\sigma_E / E$')
+ax.set_title('Jet Energy Resolution vs Jet Energy')
+ax.grid(True, alpha=0.3)
+fig.tight_layout()
+fig.savefig("../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/jet_Eta_resolution_data_points.pdf")
+
+

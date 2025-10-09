@@ -15,6 +15,7 @@ processList = {
     #'p8_ee_ZH_Zmumu_ecm240': {'fraction': 1, 'crossSection': 0.201868 * 0.034},
 }
 bins = [0, 50, 100, 150, 200]
+bins_eta = [-5, -2, -1, 0, 1, 2, 5]
 
 # Production tag when running over EDM4Hep centrally produced events, this points to the yaml files for getting sample statistics (mandatory)
 # prodTag     = "FCCee/winter2023/IDEA/"
@@ -30,7 +31,7 @@ includePaths = ["functions.h"]
 inputDir = "../../idea_fullsim/fast_sim/outputs"
 
 # Optional: output directory, default is local running directory
-outputDir = "../../idea_fullsim/fast_sim/histograms"
+outputDir = "../../idea_fullsim/fast_sim/histograms/greedy_matching"
 
 # optional: ncpus, default is 4, -1 uses all cores available
 nCPUS = -1
@@ -42,6 +43,13 @@ intLumi = 5000000  # 5 /ab
 # Define some binning for various histograms
 bins_count_jets = (5, 0, 5)
 
+def neg_format(number):
+    # put n5 for -5
+    if number < 0:
+        return "n{}".format(abs(number))
+    else:
+        return str(number)
+
 # build_graph function that contains the analysis logic, cuts and histograms (mandatory)
 def build_graph(df, dataset):
     #results = []
@@ -52,16 +60,25 @@ def build_graph(df, dataset):
     df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(JetDurhamN4)")
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetDurhamN4)")
     df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
-    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping(JetDurhamN4, GenJetDurhamN4, 0.4)")
+    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(JetDurhamN4, GenJetDurhamN4, 0.4)")
     df = df.Define("matching_processing", "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, JetDurhamN4, GenJetDurhamN4)")
     df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
     df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
     df = df.Define("genjet_energies_matched", "std::get<2>(matching_processing)")
+    df = df.Define("genjet_etas_matched", "std::get<3>(matching_processing)")
     # Bin the ratio_jet_energies_fancy according to genjet_energies (bins [0, 50, 100, 150, 200])
     histograms = []
     for i in range(len(bins) - 1):
         df = df.Define("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "FCCAnalyses::ZHfunctions::filter_number_by_bin(ratio_jet_energies_fancy, genjet_energies_matched, {}, {})".format(bins[i], bins[i + 1]))
         hh = df.Histo1D(("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "Ereco/Etrue;Ereco/Etrue;Events", 300, 0.8, 1.2), "binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]))
+        histograms.append(hh)
+    df = df.Define("jet_etas", "FCCAnalyses::ZHfunctions::get_jet_eta(JetDurhamN4)")
+    df = df.Define("genjet_etas", "FCCAnalyses::ZHfunctions::get_jet_eta(GenJetDurhamN4)")
+    h_eta = df.Histo1D(("h_eta", "eta of reco jets;eta;Events", 100, -5, 5), "jet_etas")
+    h_eta_gen = df.Histo1D(("h_eta_gen", "eta of gen jets;eta;Events", 100, -5, 5), "genjet_etas")
+    for i in range(len(bins_eta) - 1):
+        df = df.Define("binned_E_reco_over_true_eta_{}_{}".format(neg_format(bins_eta[i]), neg_format(bins_eta[i+1])), "FCCAnalyses::ZHfunctions::filter_number_by_bin(ratio_jet_energies_fancy, genjet_etas_matched, {}, {})".format(bins_eta[i], bins_eta[i + 1]))
+        hh = df.Histo1D(("binned_E_reco_over_true_eta_{}_{}".format(neg_format(bins_eta[i]), neg_format(bins_eta[i+1])), "Ereco/Etrue;Ereco/Etrue;Events", 300, 0.8, 1.2), "binned_E_reco_over_true_eta_{}_{}".format(neg_format(bins_eta[i]), neg_format(bins_eta[i+1])))
         histograms.append(hh)
     h_fancy = df.Histo1D(("h_fancy", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 150, 0.8, 1.2), "ratio_jet_energies_fancy")
     h_Ejet = df.Histo1D(("h_E_all_jets", "E of jet;E_reco;Events", 100, 0, 300), "JetDurhamN4.energy")
@@ -76,4 +93,5 @@ def build_graph(df, dataset):
         df = df.Define("jet_E{}".format(i), "ratio_jet_energies[{}]".format(i))
         h_E = df.Histo1D(("h_E{}".format(i), "E_reco/E_true;E_reco / E_true;Events", 50, 0.8, 1.2), "jet_E{}".format(i))
         results.append(h_E)
-    return results + histograms, weightsum
+    return results + histograms + [h_eta, h_eta_gen], weightsum
+

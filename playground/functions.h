@@ -15,6 +15,16 @@
 
 namespace FCCAnalyses { namespace ZHfunctions {
 
+vector<float> get_jet_eta(Vec_rp jets) {
+    std::vector<float> eta;
+    for(auto & j : jets) {
+        TLorentzVector j_lv;
+        j_lv.SetXYZM(j.momentum.x, j.momentum.y, j.momentum.z, j.mass);
+        eta.push_back(j_lv.Eta());
+    }
+    return eta;
+   }
+
 float max_jet_energy(Vec_rp jets) {
     float max_e = 0;
     for(auto & j : jets) {
@@ -31,6 +41,47 @@ std::vector<float> sort_jet_energies(Vec_rp jets) { // return a vector<float> of
     std::sort(energies.begin(), energies.end(), std::greater<float>());
     return energies;
 }
+
+std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_jets, float dR)
+{
+    // match reco jets to gen jets one-to-one by smallest ΔR, return vector<int> with
+    // index of matched gen jet for each reco jet, -1 if no match found
+    std::vector<int> result(reco_jets.size(), -1);
+    std::vector<char> used(gen_jets.size(), 0);
+    struct Pair { int i, j; float dR2; };
+    std::vector<Pair> pairs;
+    pairs.reserve(reco_jets.size() * gen_jets.size());
+    // Precompute ΔR² for all pairs within cone
+    for (size_t i = 0; i < reco_jets.size(); ++i) {
+        TLorentzVector rj_lv;
+        rj_lv.SetXYZM(reco_jets[i].momentum.x,
+                      reco_jets[i].momentum.y,
+                      reco_jets[i].momentum.z,
+                      reco_jets[i].mass);
+        for (size_t j = 0; j < gen_jets.size(); ++j) {
+            TLorentzVector gj_lv;
+            gj_lv.SetXYZM(gen_jets[j].momentum.x,
+                          gen_jets[j].momentum.y,
+                          gen_jets[j].momentum.z,
+                          gen_jets[j].mass);
+            float dRval = rj_lv.DeltaR(gj_lv);
+            if (dRval < dR)
+                pairs.push_back({(int)i, (int)j, dRval * dRval});
+        }
+    }
+    // Sort by smallest ΔR first
+    std::sort(pairs.begin(), pairs.end(),
+              [](const Pair &a, const Pair &b) { return a.dR2 < b.dR2; });
+    // Greedy one-to-one assignment
+    for (auto &p : pairs) {
+        if (result[p.i] == -1 && !used[p.j]) {
+            result[p.i] = p.j;
+            used[p.j] = 1;
+        }
+    }
+    return result;
+}
+
 
 std::vector<int> get_reco_truth_jet_mapping(Vec_rp reco_jets, Vec_rp gen_jets, float dR) {
 // match reco jets to gen jets, return a vector<int> with the index of the matched gen jet for each reco jet, -1 if no match found
@@ -73,11 +124,12 @@ vector<float> filter_number_by_bin(vector<float> values, vector<float> binning, 
     return result;
 }
 
-tuple<vector<float>, vector<float>, vector<float>> get_energy_ratios_for_matched_jets(vector<int> reco_to_gen_matching, Vec_rp reco_jets, Vec_rp gen_jets) { // return a vector<float> of the energy ratios of matched jets
+tuple<vector<float>, vector<float>, vector<float>, vector<float>> get_energy_ratios_for_matched_jets(vector<int> reco_to_gen_matching, Vec_rp reco_jets, Vec_rp gen_jets) { // return a vector<float> of the energy ratios of matched jets
     std::vector<float> result;
     std::vector<float> recojetE;
     vector<float> unmatched_reco_jet_E;
     vector<float> genjetE;
+    vector<float> genjetEta;
     for(size_t i = 0; i < reco_to_gen_matching.size(); ++i) {
         int idx = reco_to_gen_matching[i];
         if(idx >= 0 && idx < gen_jets.size()) {
@@ -85,13 +137,19 @@ tuple<vector<float>, vector<float>, vector<float>> get_energy_ratios_for_matched
             result.push_back(ratio);
             recojetE.push_back(reco_jets[i].energy);
             genjetE.push_back(gen_jets[idx].energy);
+            TLorentzVector gj_lv;
+            gj_lv.SetXYZM(gen_jets[idx].momentum.x, gen_jets[idx].momentum.y, gen_jets[idx].momentum.z, gen_jets[idx].mass);
+            genjetEta.push_back(gj_lv.Eta());
+
         }
         else {
             result.push_back(-1);
             //recojetE.push_back(reco_jets[i].energy);
             genjetE.push_back(-1);
+            genjetEta.push_back(-100);
             unmatched_reco_jet_E.push_back(reco_jets[i].energy);
         }
+
     }
     // argsort the result by the decreasing recojetE
     std::vector<size_t> indices(result.size()/2);
@@ -99,11 +157,14 @@ tuple<vector<float>, vector<float>, vector<float>> get_energy_ratios_for_matched
     std::sort(indices.begin(), indices.end(), [&result](size_t a, size_t b) { return result[2*a+1] > result[2*b+1]; });
     std::vector<float> sorted_result;
     vector<float> sorted_genjetE;
+    vector<float> sorted_genjetEta;
     for(size_t i = 0; i < indices.size(); ++i) {
         sorted_result.push_back(result[2*indices[i]]);
         sorted_genjetE.push_back(genjetE[2*indices[i]]);
+        sorted_genjetEta.push_back(genjetEta[2*indices[i]]);
+
     }
-    return tuple(sorted_result, unmatched_reco_jet_E, sorted_genjetE);
+    return tuple(sorted_result, unmatched_reco_jet_E, sorted_genjetE, sorted_genjetEta);
 }
 
 std::vector<float> elementwise_divide(vector<float> v1, vector<float> v2) { // return a vector<float> of the element-wise division of two vectors
