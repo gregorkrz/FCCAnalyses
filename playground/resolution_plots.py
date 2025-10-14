@@ -3,15 +3,32 @@ import ROOT
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from copy import copy
+import argparse
+import os
 
 ###########################################################################################
+# add --folder argument
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--folder", type=str, default="../../idea_fullsim/fast_sim/histograms")
+parser.add_argument("--output", type=str, default="comparison_multiple_jets_allJets")
+args = parser.parse_args()
+
+# python3 resolution_plots.py --folder ../../idea_fullsim/fast_sim/histograms/greedy_matching --output comparison_multiple_jets_allJets_greedyMatching
+
+dir = "../../idea_fullsim/fast_sim/histograms_view/{}".format(args.output)
+# make dir if it doesn't exist
+os.makedirs(dir, exist_ok=True)
+print("Saving to directory:", dir)
+
+def point_format(number):
+    return str(number).replace(".", "p")
 def neg_format(number):
     # put n5 for -5
     if number < 0:
-        return "n{}".format(abs(number))
+        return point_format("n{}".format(abs(number)))
     else:
-        return str(number)
+        return point_format(number)
 
 processList = {
     # 'p8_ee_ZZ_ecm240':{'fraction':1},
@@ -25,9 +42,13 @@ processList = {
     #'p8_ee_ZZ_mumubb_ecm240': {'fraction': 1, 'crossSection': 2 * 1.35899 * 0.034 * 0.152},
     #'p8_ee_ZH_Zmumu_ecm240': {'fraction': 1, 'crossSection': 0.201868 * 0.034},
 }
-############################################################################################
-def get_result_for_process(procname, bins = [0, 50, 100, 150, 200], suffix=""):
-    f = ROOT.TFile.Open("../../idea_fullsim/fast_sim/histograms/{}.root".format(procname))
+
+########################################################################################################
+binsE = [0, 50, 75, 100, 125,  150, 175]
+bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
+
+def get_result_for_process(procname, bins=binsE, suffix=""):
+    f = ROOT.TFile.Open(os.path.join(args.folder, "{}.root".format(procname)))
     fig_hist, ax_hist = plt.subplots(figsize=(5, 5))
     def get_std68(theHist, bin_edges, percentage=0.683, epsilon=0.001):
         # theHist, bin_edges = np.histogram(data_for_hist, bins=bins, density=True)
@@ -129,22 +150,24 @@ ax.set_ylabel(r'$\sigma_E / E$')
 ax.set_title('Jet Energy Resolution vs Jet Energy')
 ax.grid(True, alpha=0.3)
 fig.tight_layout()
-fig.savefig("../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/jet_energy_resolution_data_points.pdf")
+fig.savefig("../../idea_fullsim/fast_sim/histograms_view/{}/jet_energy_resolution_data_points.pdf".format(args.output))
 
 fig, ax = plt.subplots(figsize=(8, 6))
 for process in sorted(list(processList.keys())):
-    bin_mid_points, sigmaEoverE, fig_histograms = get_result_for_process(process, bins=[-5, -2, -1, 0, 1, 2, 5], suffix="eta_")
+    bin_mid_points, sigmaEoverE, fig_histograms = get_result_for_process(process, bins=bins_eta, suffix="eta_")
     fig_histograms.tight_layout()
     fig_histograms.savefig(
-        "../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/bins_eta_{}.pdf".format(process)
+        "../../idea_fullsim/fast_sim/histograms_view/{}/bins_eta_{}.pdf".format(args.output, process)
     )
     ax.plot(bin_mid_points, sigmaEoverE, ".--", label=process)
+
 ax.legend()
 ax.set_xlabel('Jet Eta [GeV]')
 ax.set_ylabel(r'$\sigma_E / E$')
 ax.set_title('Jet Energy Resolution vs Jet Energy')
 ax.grid(True, alpha=0.3)
 fig.tight_layout()
-fig.savefig("../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/jet_Eta_resolution_data_points.pdf")
+
+fig.savefig("../../idea_fullsim/fast_sim/histograms_view/{}/jet_Eta_resolution_data_points.pdf".format(args.output))
 
 

@@ -1,9 +1,15 @@
 #ifndef ZHfunctions_H
 #define ZHfunctions_H
-
 #include <cmath>
 #include <vector>
 #include <math.h>
+#include "ROOT/RLogger.hxx"
+#define rdfFatal R__LOG_FATAL(ROOT::Detail::RDF::RDFLogChannel())
+#define rdfError R__LOG_ERROR(ROOT::Detail::RDF::RDFLogChannel())
+#define rdfWarning R__LOG_WARNING(ROOT::Detail::RDF::RDFLogChannel())
+#define rdfInfo R__LOG_INFO(ROOT::Detail::RDF::RDFLogChannel())
+#define rdfDebug R__LOG_DEBUG(0, ROOT::Detail::RDF::RDFLogChannel())
+#define rdfVerbose R__LOG_DEBUG(5, ROOT::Detail::RDF::RDFLogChannel())
 
 #include "TLorentzVector.h"
 #include "ROOT/RVec.hxx"
@@ -13,7 +19,250 @@
 #include "ReconstructedParticle2MC.h"
 #include <tuple>
 
+
 namespace FCCAnalyses { namespace ZHfunctions {
+
+// TRUTH TOOLS
+vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the MCParticle collection (the ones which jets we then detect)
+    std::vector<int> quark_indices;
+    for(size_t i = 0; i < mc.size(); ++i) {
+        auto & p = mc[i];
+        if (p.PDG < 5 && p.generatorStatus == 23) { // Quarks only (direct products of the hard interaction)
+            quark_indices.push_back(i);
+        }
+    }
+    //cout << "Quark indices: " << quark_indices << endl;
+    // print the quark indices
+
+    return quark_indices;
+}
+
+
+/*std::vector<int> get_list_of_particles_from_decay(int i,
+                                             const ROOT::VecOps::RVec<edm4hep::MCParticleData>& in,
+                                             const ROOT::VecOps::RVec<int>& ind) {
+  std::vector<int> rest
+  // i = index of a MC particle in the Particle block
+  // in = the Particle collection
+  // ind = the block with the indices for the daughters, Particle#1.index
+  // returns a vector with the indices (in the Particle block) of the daughters of the particle i
+  int db = in.at(i).daughters_begin;
+  int de = in.at(i).daughters_end;
+  if  ( db == de ) return res;   // particle is stable
+  for (int id = db; id < de; id++) {
+     res.push_back( ind[id] ) ;
+  }
+  return res;
+}*/
+
+
+pair<vector<int>,vector<int>>  getRP2MC_index(ROOT::VecOps::RVec<int> recind, ROOT::VecOps::RVec<int> mcind, Vec_rp reco, Vec_mc mc) {
+  vector<int> result;
+  vector<int> result_MC2RP;
+  result.resize(reco.size(),-1.);
+  result_MC2RP.resize(mc.size(),-1.);
+  for (size_t i=0; i<recind.size();i++) {
+    // if recind.at(i) is out of bounds, log a warning!
+    if (recind.at(i) < 0 || recind.at(i) >= reco.size()) {
+      //rdfVerbose << "getRP2MC_index: recind.at(" << i << ") = " << recind.at(i) << " is out of bounds [0," << reco.size()-1 << "]" << endl;
+      continue;
+    }
+    result[recind.at(i)] = mcind.at(i);
+  }
+  for (size_t i=0; i<reco.size();i++) {
+   if (result[i] <= -1 || result[i] >= mc.size()) {
+      //rdfVerbose << "getRP2MC_index: result[" << i << "] = " << result[i] << " is out of bounds [-1," << mc.size()-1 << "]" << endl;
+      continue;
+    }
+    if (result[i]>=0) {
+        result_MC2RP[result[i]] = i;
+    } else {
+        result_MC2RP[result[i]] = -1;
+    }
+  }
+  return make_pair(result, result_MC2RP);
+}
+
+string int_array_to_string(vector<int> arr) {
+    string result = "[";
+    for (size_t i = 0; i < arr.size(); ++i) {
+        result += to_string(arr[i]);
+        if (i < arr.size() - 1) result += ", ";
+    }
+    result += "]";
+    return result;
+}
+std::vector<int> get_list_of_direct_particles_from_decay(int i,
+                                             const ROOT::VecOps::RVec<edm4hep::MCParticleData>& in,
+                                             const ROOT::VecOps::RVec<int>& ind) {
+
+  std::vector<int> res;
+
+  // i = index of a MC particle in the Particle block
+  // in = the Particle collection
+  // ind = the block with the indices for the daughters, Particle#1.index
+
+  // returns a vector with the indices (in the Particle block) of the daughters of the particle i
+
+  int db = in.at(i).daughters_begin ;
+  int de = in.at(i).daughters_end;
+  if  ( db == de ) return res;   // particle is stable
+  for (int id = db; id < de; id++) {
+     res.push_back( ind[id] ) ;
+  }
+
+  return res;
+}
+std::vector<int> get_list_of_end_decay_products_recursive(int i,
+                                           const ROOT::VecOps::RVec<edm4hep::MCParticleData>& in,
+                                           const ROOT::VecOps::RVec<int>& ind) {
+   rdfVerbose << "  Particle idx " << i << "  direct daughters: " << int_array_to_string(get_list_of_direct_particles_from_decay(i, in, ind)) << endl;
+   std::vector<int> res;
+   int db = in.at(i).daughters_begin;
+   int de = in.at(i).daughters_end;
+  //rdfVerbose << "Particle idx " << i << " has daughters_begin = " << db << ", daughters_end = " << de << endl;
+  // If no daughters, this particle is stable — return itself
+  if (db == de) {
+    res.push_back(i);
+    return res;
+  }
+  // Otherwise, recurse through daughters
+  for (int id = db; id < de; ++id) {
+    int daughter_index = ind[id];
+    auto daughters = get_list_of_end_decay_products_recursive(daughter_index, in, ind);
+    res.insert(res.end(), daughters.begin(), daughters.end());
+  }
+  // convert res such that there are no duplicates
+    std::sort(res.begin(), res.end());
+    res.erase(std::unique(res.begin(), res.end()), res.end());
+        //rdfVerbose  << " part_idx=" << i << ",decay_products=" << int_array_to_string(res) << endl;
+
+    return res;
+}
+
+
+vector<int> getGTLabels(vector<int> initial_quarks, Vec_mc in, ROOT::VecOps::RVec<int> ind) {
+    vector<int> result; // For each unique initial quark, get the list of all its decay products (recursively)
+    // Set result to -1's of the size of in
+    //rdfVerbose << "Getting GT labels for " << initial_quarks.size() << " initial quarks." << endl;
+    result.resize(in.size(), -1);
+    for (size_t i = 0; i < initial_quarks.size(); ++i) {
+        vector<int> list_of_particles = get_list_of_end_decay_products_recursive(initial_quarks[i], in, ind);
+        rdfVerbose << "Particle " << i << " (index " << initial_quarks[i] << ") has " << list_of_particles.size() << " decay products." << endl;
+        // now print all of those decay products in one line. this needs to be done in a single rdfVerbose statement to avoid interleaving with other messages
+        string decay_products = "";
+        for (size_t j = 0; j < list_of_particles.size(); ++j) {
+            decay_products += to_string(list_of_particles[j]) + " ";
+        }
+        rdfVerbose << "  Decay products: " << decay_products << endl;
+
+        for (size_t j = 0; j < list_of_particles.size(); ++j) {
+            if(result[list_of_particles[j]] == -1) { // Only set if not already set
+                result[list_of_particles[j]] = i;
+                //rdfVerbose << " GT label  " << i << " set to particle index " << list_of_particles[j] << endl;
+            } /*else {
+                rdfVerbose << " GT label  " << i << " NOT set to particle index " << list_of_particles[j] << " because it is already set to " << result[list_of_particles[j]] << endl;
+            }*/
+        }
+    }
+    // Exit, only proc one event
+    exit(0);
+    return result;
+}
+
+
+vector<int> convertMCJetLabelsIntoRecoJetLabels(vector<int> mc_labels, vector<int> mc2rp) {
+    vector<int> result;
+    for (size_t i = 0; i < mc_labels.size(); ++i) {
+        if(mc_labels[i] >= 0 && mc_labels[i] < mc2rp.size()) {
+            result.push_back(mc2rp[mc_labels[i]]);
+        }
+        else {
+            result.push_back(-1);
+        }
+    }
+    return result;
+}
+struct rp {
+float momentum[3] = {0,0,0};
+    float energy = 0;
+    float mass = 0;
+    int charge = 0;
+};
+
+Vec_rp convert(vector<rp> in) {
+    Vec_rp out;
+     //vec_rp is ROOT:VecOps::RVec< edm4hep::ReconstructedParticleData >
+    for (auto & p : in) {
+        edm4hep::ReconstructedParticleData rp;
+        rp.momentum.x = p.momentum[0];
+        rp.momentum.y = p.momentum[1];
+        rp.momentum.z = p.momentum[2];
+        rp.energy = p.energy;
+        rp.mass = p.mass;
+        rp.charge = p.charge;
+        out.push_back(rp);
+    }
+    return out;
+}
+
+Vec_rp get_jets_from_recojetlabels(vector<int> RecoJetLabels, Vec_rp RecoParticles) {
+  vector<rp> result;
+  // Basic sanity check
+  if (RecoJetLabels.size() != RecoParticles.size()) return convert(result);
+  // Find the largest non-negative label (i.e. number of jets - 1)
+  int maxLabel = -1;
+  for (int l : RecoJetLabels) if (l > maxLabel) maxLabel = l;
+  if (maxLabel < 0) return convert(result); // nothing to cluster
+  // allocate jets [0..maxLabel]
+  result.resize(static_cast<size_t>(maxLabel + 1));
+  for (auto& j : result) {
+    j.momentum[0] = 0.f;
+    j.momentum[1] = 0.f;
+    j.momentum[2] = 0.f;
+    j.energy      = 0.f;
+    j.mass        = 0.f;
+    j.charge      = 0;
+  }
+  for (size_t i = 0; i < RecoJetLabels.size(); ++i) {
+    int l = RecoJetLabels[i];
+    if (l < 0) continue; // -1: Do not cluster
+    const auto& p = RecoParticles[i];
+    auto&       j = result[static_cast<size_t>(l)];
+    j.momentum[0] += p.momentum[0];
+    j.momentum[1] += p.momentum[1];
+    j.momentum[2] += p.momentum[2];
+    j.energy      += p.energy;
+    j.charge      += p.charge; // integer sum is fine in edm4hep
+  }
+  for (auto& j : result) {
+    const float px = j.momentum[0];
+    const float py = j.momentum[1];
+    const float pz = j.momentum[2];
+    const float e  = j.energy;
+    const float m2 = e*e - (px*px + py*py + pz*pz);
+    j.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
+  }
+  return convert(result);
+}
+
+/*std::vector<int> get_list_of_particles_from_decay(int i, vector<edm4hep::MCParticleData> in, vector<int> ind) {
+
+  std::vector<int> res;
+  // i = index of a MC particle in the Particle block
+  // in = the Particle collection
+  // ind = the block with the indices for the daughters, Particle#1.index
+  // returns a vector with the indices (in the Particle block) of the daughters of the particle i
+
+  int db = in.at(i).daughters_begin ;
+  int de = in.at(i).daughters_end;
+  if  ( db == de ) return res;   // particle is stable
+  for (int id = db; id < de; id++) {
+     res.push_back( ind[id] ) ;
+  }
+  return res;
+}
+*/
 
 vector<float> get_jet_eta(Vec_rp jets) {
     std::vector<float> eta;
@@ -23,7 +272,7 @@ vector<float> get_jet_eta(Vec_rp jets) {
         eta.push_back(j_lv.Eta());
     }
     return eta;
-   }
+}
 
 float max_jet_energy(Vec_rp jets) {
     float max_e = 0;
@@ -106,7 +355,7 @@ std::vector<int> get_reco_truth_jet_mapping(Vec_rp reco_jets, Vec_rp gen_jets, f
     return result;
 }
 
-vector<float> filter_number_by_bin(vector<float> values, vector<float> binning, float lower_bound, float upper_bound) { // return a vector<float> of the values that fall within the specified bin range
+vector<float> filter_number_by_bin(vector<float> values, vector<float> binning, float lower_bound, float upper_bound) { // Return a vector<float> of the values that fall within the specified bin range
     std::vector<float> result;
     // values and binning have the same size. go through binning and, if the current value is within the specified range, add it to the result
     if(values.size() != binning.size()) {
@@ -124,7 +373,29 @@ vector<float> filter_number_by_bin(vector<float> values, vector<float> binning, 
     return result;
 }
 
-tuple<vector<float>, vector<float>, vector<float>, vector<float>> get_energy_ratios_for_matched_jets(vector<int> reco_to_gen_matching, Vec_rp reco_jets, Vec_rp gen_jets) { // return a vector<float> of the energy ratios of matched jets
+tuple<vector<float>, vector<float>> matched_genjet_E_and_all_genjet_E(vector<int> reco_to_gen_matching, Vec_rp gen_jets) {
+    // Return a pair of vector<float>, first is the energies of matched gen jets, second is the energies of unmatched gen jets
+    std::vector<float> matched;
+    std::vector<float> all_genjet;
+    std::vector<char> used(gen_jets.size(), 0);
+    for(size_t i = 0; i < reco_to_gen_matching.size(); ++i) {
+        int idx = reco_to_gen_matching[i];
+        if(idx >= 0 && idx < gen_jets.size()) {
+            matched.push_back(gen_jets[idx].energy);
+            all_genjet.push_back(gen_jets[idx].energy);
+            used[idx] = 1;
+        }
+    }
+    for(size_t i = 0; i < gen_jets.size(); ++i) {
+        if(!used[i]) {
+            all_genjet.push_back(gen_jets[i].energy);
+        }
+    }
+    return tuple(matched, all_genjet);
+}
+
+tuple<vector<float>, vector<float>, vector<float>, vector<float>> get_energy_ratios_for_matched_jets(vector<int> reco_to_gen_matching, Vec_rp reco_jets, Vec_rp gen_jets) {
+    // Return a vector<float> of the energy ratios of matched jets
     std::vector<float> result;
     std::vector<float> recojetE;
     vector<float> unmatched_reco_jet_E;
@@ -144,25 +415,24 @@ tuple<vector<float>, vector<float>, vector<float>, vector<float>> get_energy_rat
         }
         else {
             result.push_back(-1);
-            //recojetE.push_back(reco_jets[i].energy);
+            recojetE.push_back(reco_jets[i].energy);
             genjetE.push_back(-1);
             genjetEta.push_back(-100);
             unmatched_reco_jet_E.push_back(reco_jets[i].energy);
         }
 
     }
-    // argsort the result by the decreasing recojetE
-    std::vector<size_t> indices(result.size()/2);
+    std::vector<size_t> indices(result.size());
     for(size_t i = 0; i < indices.size(); ++i) indices[i] = i;
-    std::sort(indices.begin(), indices.end(), [&result](size_t a, size_t b) { return result[2*a+1] > result[2*b+1]; });
+    //std::sort(indices.begin(), indices.end(), [&result](size_t a, size_t b) { return result[2*a+1] > result[2*b+1]; });
+    sort(indices.begin(), indices.end(), [&recojetE](size_t a, size_t b) { return recojetE[a] > recojetE[b]; });
     std::vector<float> sorted_result;
     vector<float> sorted_genjetE;
     vector<float> sorted_genjetEta;
     for(size_t i = 0; i < indices.size(); ++i) {
-        sorted_result.push_back(result[2*indices[i]]);
-        sorted_genjetE.push_back(genjetE[2*indices[i]]);
-        sorted_genjetEta.push_back(genjetEta[2*indices[i]]);
-
+        sorted_result.push_back(result[indices[i]]);
+        sorted_genjetE.push_back(genjetE[indices[i]]);
+        sorted_genjetEta.push_back(genjetEta[indices[i]]);
     }
     return tuple(sorted_result, unmatched_reco_jet_E, sorted_genjetE, sorted_genjetEta);
 }
@@ -183,252 +453,5 @@ std::vector<float> elementwise_divide(vector<float> v1, vector<float> v2) { // r
     }
     return result;
 }
-
-// build the Z resonance based on the available leptons. Returns the best lepton pair compatible with the Z mass and recoil at 125 GeV
-// technically, it returns a ReconstructedParticleData object with index 0 the di-lepton system, index and 2 the leptons of the pair
-struct resonanceBuilder_mass_recoil {
-    float m_resonance_mass;
-    float m_recoil_mass;
-    float chi2_recoil_frac;
-    float ecm;
-    bool m_use_MC_Kinematics;
-    resonanceBuilder_mass_recoil(float arg_resonance_mass, float arg_recoil_mass, float arg_chi2_recoil_frac, float arg_ecm, bool arg_use_MC_Kinematics);
-    Vec_rp operator()(Vec_rp legs, Vec_i recind, Vec_i mcind, Vec_rp reco, Vec_mc mc, Vec_i parents, Vec_i daugthers) ;
-};
-
-resonanceBuilder_mass_recoil::resonanceBuilder_mass_recoil(float arg_resonance_mass, float arg_recoil_mass, float arg_chi2_recoil_frac, float arg_ecm, bool arg_use_MC_Kinematics) {m_resonance_mass = arg_resonance_mass, m_recoil_mass = arg_recoil_mass, chi2_recoil_frac = arg_chi2_recoil_frac, ecm = arg_ecm, m_use_MC_Kinematics = arg_use_MC_Kinematics;}
-
-Vec_rp resonanceBuilder_mass_recoil::resonanceBuilder_mass_recoil::operator()(Vec_rp legs, Vec_i recind, Vec_i mcind, Vec_rp reco, Vec_mc mc, Vec_i parents, Vec_i daugthers) {
-
-    Vec_rp result;
-    result.reserve(3);
-    std::vector<std::vector<int>> pairs; // for each permutation, add the indices of the muons
-    int n = legs.size();
-
-    if(n > 1) {
-        ROOT::VecOps::RVec<bool> v(n);
-        std::fill(v.end() - 2, v.end(), true); // helper variable for permutations
-        do {
-            std::vector<int> pair;
-            rp reso;
-            reso.charge = 0;
-            TLorentzVector reso_lv;
-            for(int i = 0; i < n; ++i) {
-                if(v[i]) {
-                    pair.push_back(i);
-                    reso.charge += legs[i].charge;
-                    TLorentzVector leg_lv;
-
-                    if(m_use_MC_Kinematics) { // MC kinematics
-                        int track_index = legs[i].tracks_begin;   // index in the Track array
-                        int mc_index = ReconstructedParticle2MC::getTrack2MC_index(track_index, recind, mcind, reco);
-                        if (mc_index >= 0 && mc_index < mc.size()) {
-                            leg_lv.SetXYZM(mc.at(mc_index).momentum.x, mc.at(mc_index).momentum.y, mc.at(mc_index).momentum.z, mc.at(mc_index).mass);
-                        }
-                    }
-                    else { // reco kinematics
-                         leg_lv.SetXYZM(legs[i].momentum.x, legs[i].momentum.y, legs[i].momentum.z, legs[i].mass);
-                    }
-
-                    reso_lv += leg_lv;
-                }
-            }
-
-            if(reso.charge != 0) continue; // neglect non-zero charge pairs
-            reso.momentum.x = reso_lv.Px();
-            reso.momentum.y = reso_lv.Py();
-            reso.momentum.z = reso_lv.Pz();
-            reso.mass = reso_lv.M();
-            result.emplace_back(reso);
-            pairs.push_back(pair);
-
-        } while(std::next_permutation(v.begin(), v.end()));
-    }
-    else {
-        std::cout << "ERROR: resonanceBuilder_mass_recoil, at least two leptons required." << std::endl;
-        exit(1);
-    }
-
-    if(result.size() > 1) {
-
-        Vec_rp bestReso;
-
-        int idx_min = -1;
-        float d_min = 9e9;
-        for (int i = 0; i < result.size(); ++i) {
-
-            // calculate recoil
-            auto recoil_p4 = TLorentzVector(0, 0, 0, ecm);
-            TLorentzVector tv1;
-            tv1.SetXYZM(result.at(i).momentum.x, result.at(i).momentum.y, result.at(i).momentum.z, result.at(i).mass);
-            recoil_p4 -= tv1;
-
-            auto recoil_fcc = edm4hep::ReconstructedParticleData();
-            recoil_fcc.momentum.x = recoil_p4.Px();
-            recoil_fcc.momentum.y = recoil_p4.Py();
-            recoil_fcc.momentum.z = recoil_p4.Pz();
-            recoil_fcc.mass = recoil_p4.M();
-
-            TLorentzVector tg;
-            tg.SetXYZM(result.at(i).momentum.x, result.at(i).momentum.y, result.at(i).momentum.z, result.at(i).mass);
-
-            float boost = tg.P();
-            float mass = std::pow(result.at(i).mass - m_resonance_mass, 2); // mass
-            float rec = std::pow(recoil_fcc.mass - m_recoil_mass, 2); // recoil
-            float d = (1.0-chi2_recoil_frac)*mass + chi2_recoil_frac*rec;
-
-            if(d < d_min) {
-                d_min = d;
-                idx_min = i;
-            }
-
-
-        }
-        if(idx_min > -1) {
-            bestReso.push_back(result.at(idx_min));
-            auto & l1 = legs[pairs[idx_min][0]];
-            auto & l2 = legs[pairs[idx_min][1]];
-            bestReso.emplace_back(l1);
-            bestReso.emplace_back(l2);
-        }
-        else {
-            std::cout << "ERROR: resonanceBuilder_mass_recoil, no mininum found." << std::endl;
-            exit(1);
-        }
-        return bestReso;
-    }
-    else {
-        auto & l1 = legs[0];
-        auto & l2 = legs[1];
-        result.emplace_back(l1);
-        result.emplace_back(l2);
-        return result;
-    }
-}
-
-
-
-
-struct sel_iso {
-    sel_iso(float arg_max_iso);
-    float m_max_iso = .25;
-    Vec_rp operator() (Vec_rp in, Vec_f iso);
-  };
-
-sel_iso::sel_iso(float arg_max_iso) : m_max_iso(arg_max_iso) {};
-ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData>  sel_iso::operator() (Vec_rp in, Vec_f iso) {
-    Vec_rp result;
-    result.reserve(in.size());
-    for (size_t i = 0; i < in.size(); ++i) {
-        auto & p = in[i];
-        if (iso[i] < m_max_iso) {
-            result.emplace_back(p);
-        }
-    }
-    return result;
-}
-
-
-// compute the cone isolation for reco particles
-struct coneIsolation {
-
-    coneIsolation(float arg_dr_min, float arg_dr_max);
-    double deltaR(double eta1, double phi1, double eta2, double phi2) { return TMath::Sqrt(TMath::Power(eta1-eta2, 2) + (TMath::Power(phi1-phi2, 2))); };
-
-    float dr_min = 0;
-    float dr_max = 0.4;
-    Vec_f operator() (Vec_rp in, Vec_rp rps) ;
-};
-
-coneIsolation::coneIsolation(float arg_dr_min, float arg_dr_max) : dr_min(arg_dr_min), dr_max( arg_dr_max ) { };
-Vec_f coneIsolation::coneIsolation::operator() (Vec_rp in, Vec_rp rps) {
-
-    Vec_f result;
-    result.reserve(in.size());
-
-    std::vector<ROOT::Math::PxPyPzEVector> lv_reco;
-    std::vector<ROOT::Math::PxPyPzEVector> lv_charged;
-    std::vector<ROOT::Math::PxPyPzEVector> lv_neutral;
-
-    for(size_t i = 0; i < rps.size(); ++i) {
-
-        ROOT::Math::PxPyPzEVector tlv;
-        tlv.SetPxPyPzE(rps.at(i).momentum.x, rps.at(i).momentum.y, rps.at(i).momentum.z, rps.at(i).energy);
-
-        if(rps.at(i).charge == 0) lv_neutral.push_back(tlv);
-        else lv_charged.push_back(tlv);
-    }
-
-    for(size_t i = 0; i < in.size(); ++i) {
-
-        ROOT::Math::PxPyPzEVector tlv;
-        tlv.SetPxPyPzE(in.at(i).momentum.x, in.at(i).momentum.y, in.at(i).momentum.z, in.at(i).energy);
-        lv_reco.push_back(tlv);
-    }
-
-
-    // compute the isolation (see https://github.com/delphes/delphes/blob/master/modules/Isolation.cc#L154)
-    for (auto & lv_reco_ : lv_reco) {
-
-        double sumNeutral = 0.0;
-        double sumCharged = 0.0;
-
-        // charged
-        for (auto & lv_charged_ : lv_charged) {
-
-            double dr = coneIsolation::deltaR(lv_reco_.Eta(), lv_reco_.Phi(), lv_charged_.Eta(), lv_charged_.Phi());
-            if(dr > dr_min && dr < dr_max) sumCharged += lv_charged_.P();
-        }
-
-        // neutral
-        for (auto & lv_neutral_ : lv_neutral) {
-            double dr = coneIsolation::deltaR(lv_reco_.Eta(), lv_reco_.Phi(), lv_neutral_.Eta(), lv_neutral_.Phi());
-            if(dr > dr_min && dr < dr_max) sumNeutral += lv_neutral_.P();
-        }
-
-        double sum = sumCharged + sumNeutral;
-        double ratio= sum / lv_reco_.P();
-        result.emplace_back(ratio);
-    }
-    return result;
-}
-
-
-
-// returns missing energy vector, based on reco particles
-Vec_rp missingEnergy(float ecm, Vec_rp in, float p_cutoff = 0.0) {
-    float px = 0, py = 0, pz = 0, e = 0;
-    for(auto &p : in) {
-        if (std::sqrt(p.momentum.x * p.momentum.x + p.momentum.y*p.momentum.y) < p_cutoff) continue;
-        px += -p.momentum.x;
-        py += -p.momentum.y;
-        pz += -p.momentum.z;
-        e += p.energy;
-    }
-
-    Vec_rp ret;
-    rp res;
-    res.momentum.x = px;
-    res.momentum.y = py;
-    res.momentum.z = pz;
-    res.energy = ecm-e;
-    ret.emplace_back(res);
-    return ret;
-}
-
-// calculate the cosine(theta) of the missing energy vector
-float get_cosTheta_miss(Vec_rp met){
-
-    float costheta = 0.;
-    if(met.size() > 0) {
-        TLorentzVector lv_met;
-        lv_met.SetPxPyPzE(met[0].momentum.x, met[0].momentum.y, met[0].momentum.z, met[0].energy);
-        costheta = fabs(std::cos(lv_met.Theta()));
-    }
-    return costheta;
-}
-
-
 }}
-
 #endif

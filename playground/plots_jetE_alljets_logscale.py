@@ -17,7 +17,8 @@ formats        = ['png','pdf']
 #inputDir       = '../../idea_fullsim/fast_sim/histograms/greedy_matching'
 
 outdir         = '../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets'
-inputDir       = '../../idea_fullsim/fast_sim/histograms/greedy_matching'
+inputDir       = '../../idea_fullsim/fast_sim/histograms'
+
 
 plotStatUnc    = True
 
@@ -95,7 +96,18 @@ hists["h_E_all_jets"] = {
     "output":   "E_of_all_reco_jets",
     "logy":     False,
     "stack":    False,
-    "ymax": 15000,
+    #"rebin":    100,
+    #"xmin":     120,
+    #"xmax":     140,
+    ##"ymin":     0,
+    "xtitle":   "E of reco jets",
+    "ytitle":   "Events",
+}
+
+hists["h_E_all_jets"] = {
+    "output":   "E_of_all_reco_jets",
+    "logy":     False,
+    "stack":    False,
     #"rebin":    100,
     #"xmin":     120,
     #"xmax":     140,
@@ -141,4 +153,3 @@ hists["h_eta_gen"] = {
     "xtitle":   "eta of gen jets",
     "ytitle":   "Events",
 }
-
