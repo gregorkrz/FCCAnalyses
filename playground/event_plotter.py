@@ -79,11 +79,16 @@ def build_graph(df, dataset):
     df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
     l = df.AsNumpy(["ratio_jet_energies_fancy"])["ratio_jet_energies_fancy"]
     l = list([list(item) for item in l])
+
     df = df.Define("_serialized_evt", "FCCAnalyses::Utils::serialize_event(ReconstructedParticles);")
+    df = df.Define("_serialized_evt_gen", "FCCAnalyses::Utils::serialize_event(FCCAnalyses::ZHfunctions::stable_particles(Particle));")
     df = df.Define("_serialized_jets", "FCCAnalyses::Utils::serialize_event(JetDurhamN4);")
     df = df.Define("_serialized_evt_eta", "std::get<0>(_serialized_evt);")
     df = df.Define("_serialized_evt_phi", "std::get<1>(_serialized_evt);")
     df = df.Define("_serialized_evt_pt", "std::get<2>(_serialized_evt);")
+    df = df.Define("_serialized_evt_gen_eta", "std::get<0>(_serialized_evt_gen);")
+    df = df.Define("_serialized_evt_gen_phi", "std::get<1>(_serialized_evt_gen);")
+    df = df.Define("_serialized_evt_gen_pt", "std::get<2>(_serialized_evt_gen);")
     df = df.Define("_serialized_jets_eta", "std::get<0>(_serialized_jets);")
     df = df.Define("_serialized_jets_phi", "std::get<1>(_serialized_jets);")
     df = df.Define("_serialized_jets_pt", "std::get<2>(_serialized_jets);")
@@ -91,9 +96,15 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_initial_partons_eta", "std::get<0>(_serialized_initial_partons);")
     df = df.Define("_serialized_initial_partons_phi", "std::get<1>(_serialized_initial_partons);")
     df = df.Define("_serialized_initial_partons_pt", "std::get<2>(_serialized_initial_partons);")
+    df = df.Define("_serialized_genjets", "FCCAnalyses::Utils::serialize_event(GenJetDurhamN4);")
+    df = df.Define("_serialized_genjets_eta", "std::get<0>(_serialized_genjets);")
+    df = df.Define("_serialized_genjets_phi", "std::get<1>(_serialized_genjets);")
+    df = df.Define("_serialized_genjets_pt", "std::get<2>(_serialized_genjets);")
     tonumpy = df.AsNumpy(["_serialized_evt_eta", "_serialized_evt_phi", "_serialized_evt_pt", "_serialized_jets_eta",
                           "_serialized_jets_phi", "_serialized_jets_pt", "_serialized_initial_partons_eta",
-                          "_serialized_initial_partons_phi", "_serialized_initial_partons_pt"])
+                          "_serialized_initial_partons_phi", "_serialized_initial_partons_pt", "_serialized_genjets_eta",
+                          "_serialized_genjets_phi", "_serialized_genjets_pt", "_serialized_evt_gen_eta",
+                          "_serialized_evt_gen_phi", "_serialized_evt_gen_pt"])
     tonumpy = {key: list([list(x) for x in tonumpy[key]]) for key in tonumpy}
     for event_idx in range(len(l)):
         if plot_filter(l[event_idx], idx=1):
@@ -101,18 +112,20 @@ def build_graph(df, dataset):
                 return [], weightsum # Just plot 10 events...
             #event_idx = # I want an event idx that is unique per dataset, even with multiple input root files. How do I do this?
             #print("Plotting event idx ", global_event_idx.get(dataset, 0), " from dataset ", dataset)
-            # Convert each item to a list again
             eta, phi, pt = tonumpy["_serialized_evt_eta"][event_idx], tonumpy["_serialized_evt_phi"][event_idx], tonumpy["_serialized_evt_pt"][event_idx]
             vec_rp = Vec_RP(eta=eta, phi=phi, pt=pt)
+            etamc, phimc, ptmc = tonumpy["_serialized_evt_gen_eta"][event_idx], tonumpy["_serialized_evt_gen_phi"][event_idx], tonumpy["_serialized_evt_gen_pt"][event_idx]
+            vec_mc = Vec_RP(eta=etamc, phi=phimc, pt=ptmc)
             jets_eta, jets_phi, jets_pt = tonumpy["_serialized_jets_eta"][event_idx], tonumpy["_serialized_jets_phi"][event_idx], tonumpy["_serialized_jets_pt"][event_idx]
             jets_text = l[event_idx]
-            vec_jets = Vec_RP(eta=jets_eta, phi=jets_phi, pt=jets_pt)
+            print("Jets_text:", jets_text)
+            vec_jets = Vec_RP(eta=jets_eta, phi=jets_phi, pt=jets_pt, txt=[str(round(x, 2)) for x in jets_text])
             gt_eta, gt_phi, gt_pt = tonumpy["_serialized_initial_partons_eta"][event_idx], tonumpy["_serialized_initial_partons_phi"][event_idx], tonumpy["_serialized_initial_partons_pt"][event_idx]
             vec_gt = Vec_RP(eta=gt_eta, phi=gt_phi, pt=gt_pt)
-            #print("Serialized initial partons (gt) pt:", vec_gt.pt, "eta:", vec_gt.eta, "phi:", vec_gt.phi)
-            # Create event
+            genjets_eta, genjets_phi, genjets_pt = tonumpy["_serialized_genjets_eta"][event_idx], tonumpy["_serialized_genjets_phi"][event_idx], tonumpy["_serialized_genjets_pt"][event_idx]
+            vec_genjets = Vec_RP(eta=genjets_eta, phi=genjets_phi, pt=genjets_pt)
             event = Event(vec_rp=vec_rp, additional_collections={
-                "RecoJets": vec_jets, "InitialPartons": vec_gt}
+                "RecoJets": vec_jets, "InitialPartons": vec_gt, "GenJets": vec_genjets}
             )
             fig, ax = event.display()
             if not os.path.exists(outputDir):

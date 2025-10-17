@@ -27,7 +27,7 @@ vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the M
     std::vector<int> quark_indices;
     for(size_t i = 0; i < mc.size(); ++i) {
         auto & p = mc[i];
-        if (p.PDG < 5 && p.generatorStatus == 23) { // Quarks only (direct products of the hard interaction)
+        if (((p.PDG < 5) || (p.PDG == 21)) && p.generatorStatus == 23) { // Quarks only (direct products of the hard interaction)
             quark_indices.push_back(i);
         }
     }
@@ -37,8 +37,24 @@ vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the M
     return quark_indices;
 }
 
-
-
+vector<int> get_MC_quark_index_for_Higgs(Vec_mc mc) {
+    // get the quark indices, but only for the ones that are direct descendants of the Higgs
+    std::vector<int> quark_indices;
+    for(size_t i = 0; i < mc.size(); ++i) {
+        auto & p = mc[i];
+        if (((p.PDG < 5) || (p.PDG == 21)) && p.generatorStatus == 23) { // Quarks only (direct products of the hard interaction)
+            // check if the mother is a Higgs (PDG 25)
+            int mother_index = p.parents_begin;
+            if(mother_index >= 0 && mother_index < mc.size()) {
+                auto & mother = mc[mother_index];
+                if(mother.PDG == 25) {
+                    quark_indices.push_back(i);
+                }
+            }
+        }
+    }
+    return quark_indices;
+}
 
 /*std::vector<int> get_list_of_particles_from_decay(int i,
                                              const ROOT::VecOps::RVec<edm4hep::MCParticleData>& in,
@@ -395,6 +411,35 @@ std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_
     return result;
 }
 
+Vec_rp stable_particles(Vec_mc mc_particles) {
+// Return a Vec_mc of only the stable particles (generatorStatus == 1) //
+    vector<rp> result;
+    for(auto & p : mc_particles) {
+        if(p.generatorStatus == 1) {
+            rp temp;
+            temp.momentum[0] = p.momentum.x;
+            temp.momentum[1] = p.momentum.y;
+            temp.momentum[2] = p.momentum.z;
+            //rdfVerbose << "momentum temp" << temp.momentum[0] << " " << temp.momentum[1] << " " <<  temp.momentum[2];
+            //exit(0);
+            temp.mass = p.mass;
+            temp.charge = p.charge;
+            result.push_back(temp);
+        }
+    }
+    return convert(result);
+}
+
+float invariant_mass(Vec_rp jets) { // vec_rp could be either reco jets, gen jets, filtered jets, or just all reco particles
+    TLorentzVector total_lv;
+    total_lv.SetXYZM(0,0,0,0);
+    for(auto & j : jets) {
+        TLorentzVector j_lv;
+        j_lv.SetXYZM(j.momentum.x, j.momentum.y, j.momentum.z, j.mass);
+        total_lv += j_lv;
+    }
+    return total_lv.M();
+}
 
 std::vector<int> get_reco_truth_jet_mapping(Vec_rp reco_jets, Vec_rp gen_jets, float dR) {
 // match reco jets to gen jets, return a vector<int> with the index of the matched gen jet for each reco jet, -1 if no match found
@@ -484,7 +529,6 @@ tuple<vector<float>, vector<float>, vector<float>, vector<float>> get_energy_rat
             genjetEta.push_back(-100);
             unmatched_reco_jet_E.push_back(reco_jets[i].energy);
         }
-
     }
     std::vector<size_t> indices(result.size());
     for(size_t i = 0; i < indices.size(); ++i) indices[i] = i;

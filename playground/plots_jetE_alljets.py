@@ -173,3 +173,52 @@ hists["h_min_dist_jets_reco"] = {
     "xtitle": "Min. DeltaR between reco jets",
     "ytitle": "Events",
 }
+
+hists["h_invariant_mass_genjets"] = {
+    "output":   "invariant_mass_genjets",
+    "logy":     False,
+    "stack":    False,
+    #"rebin":    100,
+    #"xmin":     120,
+    #"xmax":     140,
+    ##"ymin":     0,
+    "xtitle":   "Invariant mass of gen jets",
+    "ytitle":   "Events",
+
+}
+
+hists["h_invariant_mass_recojets"] = {
+    "output":   "invariant_mass_recojets",
+    "logy":     False,
+    "stack":    False,
+    #"rebin":    100,
+    #"xmin":     120,
+    #"xmax":     140,
+    ##"ymin":     0,
+    "xtitle":   "Invariant mass of reco jets",
+    "ytitle":   "Events",
+}
+
+hists["h_invariant_mass_gen_particles"] = {
+    "output":   "invariant_mass_gen_particles",
+    "logy":     False,
+    "stack":    False,
+    #"rebin":    100,
+    #"xmin":     120,
+    #"xmax":     140,
+    ##"ymin":     0,
+    "xtitle":   "Invariant mass of gen particles",
+    "ytitle":   "Events",
+}
+
+hists["h_invariant_mass_reco_particles"] = {
+    "output":   "invariant_mass_reco_particles",
+    "logy":     False,
+    "stack":    False,
+    #"rebin":    100,
+    #"xmin":     120,
+    #"xmax":     140,
+    ##"ymin":     0,
+    "xtitle":   "Invariant mass of reco particles",
+    "ytitle":   "Events",
+}
