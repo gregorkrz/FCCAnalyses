@@ -11,6 +11,8 @@ processList = {
     #"p8_ee_ZH_llbb_ecm365": {'fraction': 1},
     "p8_ee_ZH_6jet_ecm365": {'fraction': 1},
     "p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
+    "p8_ee_ZH_bbbb_ecm365": {'fraction': 1},
+    "p8_ee_ZH_vvgg_ecm365": {'fraction': 1},
     # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
     #'p8_ee_WW_mumu_ecm240': {'fraction': 1, 'crossSection': 0.25792},
     #'p8_ee_ZZ_mumubb_ecm240': {'fraction': 1, 'crossSection': 2 * 1.35899 * 0.034 * 0.152},
@@ -64,7 +66,15 @@ def neg_format(number):
     else:
         return point_format(number)
 
+
+def plot_filter(E_reco_over_true):
+    for E in E_reco_over_true:
+        if E > 0.87 and E < 0.93:
+            return True
+    return False
+
 # build_graph function that contains the analysis logic, cuts and histograms (mandatory)
+
 def build_graph(df, dataset):
     #results = []
     df = df.Define("weight", "1.0")
@@ -75,6 +85,14 @@ def build_graph(df, dataset):
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetDurhamN4)")
     df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
     df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(JetDurhamN4, GenJetDurhamN4, 0.2)")
+    df = df.Define("distance_between_genjets", "FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4)")
+    df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4)")
+    df = df.Define("min_distance_between_genjets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4))")
+    df = df.Define("min_distance_between_recojets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4))")
+    hist_dist_jets_gen = df.Histo1D(("h_dist_jets_gen", "Distance between gen jets;#DeltaR(jet_i, jet_j);Events", 100, 0, 5), "distance_between_genjets")
+    hist_dist_jets_reco = df.Histo1D(("h_dist_jets_reco", "Distance between reco jets;#DeltaR(jet_i, jet_j);Events", 100, 0, 5), "distance_between_recojets")
+    hist_min_dist_jets_gen = df.Histo1D(("h_min_dist_jets_gen", "Min distance between gen jets;min #DeltaR(jet_i, jet_j);Events", 100, 0, 5), "min_distance_between_genjets")
+    hist_min_dist_jets_reco = df.Histo1D(("h_min_dist_jets_reco", "Min distance between reco jets;min #DeltaR(jet_i, jet_j);Events", 100, 0, 5), "min_distance_between_recojets")
     df = df.Define("matched_genjet_E_and_all_genjet_E", "FCCAnalyses::ZHfunctions::matched_genjet_E_and_all_genjet_E(fancy_matching, GenJetDurhamN4)")
     df = df.Define("matched_genjet_energies", "std::get<0>(matched_genjet_E_and_all_genjet_E)")
     df = df.Define("all_genjet_energies", "std::get<1>(matched_genjet_E_and_all_genjet_E)")
@@ -86,7 +104,7 @@ def build_graph(df, dataset):
     df = df.Define("genjet_energies_matched", "std::get<2>(matching_processing)")
     df = df.Define("genjet_etas_matched", "std::get<3>(matching_processing)")
     # Bin the ratio_jet_energies_fancy according to genjet_energies (bins [0, 50, 100, 150, 200])
-    histograms = [hist_genjet_all_energies, hist_genjet_matched_energies]
+    histograms = [hist_genjet_all_energies, hist_genjet_matched_energies, hist_dist_jets_gen, hist_dist_jets_reco, hist_min_dist_jets_reco, hist_min_dist_jets_gen]
     for i in range(len(bins) - 1):
         df = df.Define("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "FCCAnalyses::ZHfunctions::filter_number_by_bin(ratio_jet_energies_fancy, genjet_energies_matched, {}, {})".format(bins[i], bins[i + 1]))
         hh = df.Histo1D(("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "Ereco/Etrue;Ereco/Etrue;Events", 300, 0.8, 1.2), "binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]))
@@ -101,6 +119,7 @@ def build_graph(df, dataset):
         hh = df.Histo1D(("binned_E_reco_over_true_eta_{}_{}".format(neg_format(bins_eta[i]), neg_format(bins_eta[i+1])), "Ereco/Etrue;Ereco/Etrue;Events", 300, 0.8, 1.2), "binned_E_reco_over_true_eta_{}_{}".format(neg_format(bins_eta[i]), neg_format(bins_eta[i+1])))
         histograms.append(hh)
     h_fancy = df.Histo1D(("h_fancy", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 300, 0.5, 1.5), "ratio_jet_energies_fancy")
+
     h_Ejet = df.Histo1D(("h_E_all_jets", "E of jet;E_reco;Events", 100, 0, 300), "JetDurhamN4.energy")
     h_Egenjet = df.Histo1D(("h_E_all_genjets", "E of genjet;E_gen;Events", 100, 0, 300), "GenJetDurhamN4.energy")
     # count -1s  in ratio_jet_energies_fancy

@@ -1,0 +1,126 @@
+# fccanalysis run event_plotter.py
+# source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
+# source /cvmfs/sw.hsf.org/key4hep/setup.sh
+# source  /cvmfs/sw-nightlies.hsf.org/key4hep/setup.sh
+import os
+from event_displays import Vec_RP, Event
+
+inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
+
+processList = {
+    'p8_ee_WW_ecm365_fullhad': {'fraction': 0.01},
+    "p8_ee_ZH_qqbb_ecm365": {'fraction': 0.01},
+    "p8_ee_ZH_6jet_ecm365": {'fraction': 0.01},
+    "p8_ee_ZH_vvbb_ecm365": {'fraction': 0.01},
+    "p8_ee_ZH_bbbb_ecm365": {'fraction': 0.01},
+    "p8_ee_ZH_vvgg_ecm365": {'fraction': 0.01},
+    #"p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
+}
+
+
+#def get_files(procname):
+#    prefix = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
+#    files = []
+#    for i in range(1, 6, 1):
+#        files.append(prefix + procname + ".root")
+#for proc in processList:
+#    processList[proc]['files'] = get_files(proc)
+
+# Production tag when running over EDM4Hep centrally produced events, this points to the yaml files for getting sample statistics (mandatory)
+# prodTag     = "FCCee/winter2023/IDEA/"
+
+# Link to the dictionary that contains all the cross section informations etc... (mandatory)
+procDict = "FCCee_procDict_winter2023_IDEA.json"
+
+global_event_idx = {}
+# additional/custom C++ functions, defined in header files (optional)
+includePaths = ["functions.h", "utils.h"]
+
+# Define the input dir (optional)
+# inputDir    = "outputs/FCCee/higgs/mH-recoil/mumu/stage1"
+#inputDir = "../../idea_fullsim/fast_sim/outputs"
+
+# Optional: output directory, default is local running directory
+outputDir = "../../idea_fullsim/fast_sim/event_displays_1"
+#outputDir = "../../idea_fullsim/fast_sim/histograms"
+
+
+def plot_filter(E_reco_over_true, idx=1):
+    # TODO: implement different plotting filter idxs
+    for E in E_reco_over_true:
+        if (E > 0.87) and (E < 0.93):
+            return True
+    return False
+
+
+def build_graph(df, dataset):
+    global global_event_idx # is this thread-safe??
+    df = df.Define("weight", "1.0")
+    weightsum = df.Sum("weight")
+    df = df.Define("MC_quark_index", "FCCAnalyses::ZHfunctions::get_MC_quark_index(Particle);")
+    df = df.Define("GT_jets", "FCCAnalyses::ZHfunctions::get_GT_jets_from_initial_particles(Particle, MC_quark_index);")
+    df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(JetDurhamN4)")
+    df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetDurhamN4)")
+    df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
+    df = df.Define("fancy_matching",
+                   "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(JetDurhamN4, GenJetDurhamN4, 0.2)")
+    df = df.Define("distance_between_genjets", "FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4)")
+    df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4)")
+    df = df.Define("min_distance_between_genjets",
+                   "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4))")
+    df = df.Define("min_distance_between_recojets",
+                   "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4))")
+    df = df.Define("matched_genjet_E_and_all_genjet_E",
+                   "FCCAnalyses::ZHfunctions::matched_genjet_E_and_all_genjet_E(fancy_matching, GenJetDurhamN4)")
+    df = df.Define("matched_genjet_energies", "std::get<0>(matched_genjet_E_and_all_genjet_E)")
+    df = df.Define("all_genjet_energies", "std::get<1>(matched_genjet_E_and_all_genjet_E)")
+    df = df.Define("matching_processing",
+                   "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, JetDurhamN4, GenJetDurhamN4)")
+    df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
+    l = df.AsNumpy(["ratio_jet_energies_fancy"])["ratio_jet_energies_fancy"]
+    l = list([list(item) for item in l])
+    df = df.Define("_serialized_evt", "FCCAnalyses::Utils::serialize_event(ReconstructedParticles);")
+    df = df.Define("_serialized_jets", "FCCAnalyses::Utils::serialize_event(JetDurhamN4);")
+    df = df.Define("_serialized_evt_eta", "std::get<0>(_serialized_evt);")
+    df = df.Define("_serialized_evt_phi", "std::get<1>(_serialized_evt);")
+    df = df.Define("_serialized_evt_pt", "std::get<2>(_serialized_evt);")
+    df = df.Define("_serialized_jets_eta", "std::get<0>(_serialized_jets);")
+    df = df.Define("_serialized_jets_phi", "std::get<1>(_serialized_jets);")
+    df = df.Define("_serialized_jets_pt", "std::get<2>(_serialized_jets);")
+    df = df.Define("_serialized_initial_partons", "FCCAnalyses::Utils::serialize_event(GT_jets);")
+    df = df.Define("_serialized_initial_partons_eta", "std::get<0>(_serialized_initial_partons);")
+    df = df.Define("_serialized_initial_partons_phi", "std::get<1>(_serialized_initial_partons);")
+    df = df.Define("_serialized_initial_partons_pt", "std::get<2>(_serialized_initial_partons);")
+    tonumpy = df.AsNumpy(["_serialized_evt_eta", "_serialized_evt_phi", "_serialized_evt_pt", "_serialized_jets_eta",
+                          "_serialized_jets_phi", "_serialized_jets_pt", "_serialized_initial_partons_eta",
+                          "_serialized_initial_partons_phi", "_serialized_initial_partons_pt"])
+    tonumpy = {key: list([list(x) for x in tonumpy[key]]) for key in tonumpy}
+    for event_idx in range(len(l)):
+        if plot_filter(l[event_idx], idx=1):
+            if global_event_idx.get(dataset, 0) > 10:
+                return [], weightsum # Just plot 10 events...
+            #event_idx = # I want an event idx that is unique per dataset, even with multiple input root files. How do I do this?
+            #print("Plotting event idx ", global_event_idx.get(dataset, 0), " from dataset ", dataset)
+            # Convert each item to a list again
+            eta, phi, pt = tonumpy["_serialized_evt_eta"][event_idx], tonumpy["_serialized_evt_phi"][event_idx], tonumpy["_serialized_evt_pt"][event_idx]
+            vec_rp = Vec_RP(eta=eta, phi=phi, pt=pt)
+            jets_eta, jets_phi, jets_pt = tonumpy["_serialized_jets_eta"][event_idx], tonumpy["_serialized_jets_phi"][event_idx], tonumpy["_serialized_jets_pt"][event_idx]
+            jets_text = l[event_idx]
+            vec_jets = Vec_RP(eta=jets_eta, phi=jets_phi, pt=jets_pt)
+            gt_eta, gt_phi, gt_pt = tonumpy["_serialized_initial_partons_eta"][event_idx], tonumpy["_serialized_initial_partons_phi"][event_idx], tonumpy["_serialized_initial_partons_pt"][event_idx]
+            vec_gt = Vec_RP(eta=gt_eta, phi=gt_phi, pt=gt_pt)
+            #print("Serialized initial partons (gt) pt:", vec_gt.pt, "eta:", vec_gt.eta, "phi:", vec_gt.phi)
+            # Create event
+            event = Event(vec_rp=vec_rp, additional_collections={
+                "RecoJets": vec_jets, "InitialPartons": vec_gt}
+            )
+            fig, ax = event.display()
+            if not os.path.exists(outputDir):
+                os.makedirs(outputDir)
+            fig.savefig(os.path.join(outputDir, "event_{}_{}.png".format(dataset, global_event_idx.get(dataset, 0))))
+            # Close the figure
+            fig.clf()
+            del fig
+            global_event_idx[dataset] = global_event_idx.get(dataset, 0) + 1
+    return [], weightsum
+

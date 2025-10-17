@@ -38,6 +38,8 @@ vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the M
 }
 
 
+
+
 /*std::vector<int> get_list_of_particles_from_decay(int i,
                                              const ROOT::VecOps::RVec<edm4hep::MCParticleData>& in,
                                              const ROOT::VecOps::RVec<int>& ind) {
@@ -140,6 +142,39 @@ std::vector<int> get_list_of_end_decay_products_recursive(int i,
     return res;
 }
 
+vector<float> min(vector<float> in) {
+// Return a vector<float> of the minimum value in the input vector}
+    vector<float> result;
+    if(in.size() == 0) {
+        result.push_back(-1);
+        return result;
+    }
+    float min_val = in[0];
+    for(auto & v : in) {
+        if(v < min_val) min_val = v;
+    }
+    result.push_back(min_val);
+    return result;
+}
+
+vector<float> get_jet_distances(Vec_rp jets) {
+    // Get jet distances between each pair of jets (in deltaR)
+    vector<float> result;
+    for(auto & j : jets) {
+        TLorentzVector j_lv;
+        j_lv.SetXYZM(j.momentum.x, j.momentum.y, j.momentum.z, j.mass);
+        for(auto & k : jets) {
+            TLorentzVector k_lv;
+            k_lv.SetXYZM(k.momentum.x, k.momentum.y, k.momentum.z, k.mass);
+            float dR = j_lv.DeltaR(k_lv);
+            if (dR > 0.0001) {
+                // Make sure not to take the i-i pairs
+                result.push_back(dR);
+            }
+        }
+    }
+    return result;
+}
 
 vector<int> getGTLabels(vector<int> initial_quarks, Vec_mc in, ROOT::VecOps::RVec<int> ind) {
     vector<int> result; // For each unique initial quark, get the list of all its decay products (recursively)
@@ -204,6 +239,35 @@ Vec_rp convert(vector<rp> in) {
         out.push_back(rp);
     }
     return out;
+}
+
+
+Vec_rp get_GT_jets_from_initial_particles(Vec_mc mc_particles, vector<int> quark_idx) {
+    // Picks the intial quarks and returns them in the same format as the jets, so that they can be used in the existing matching functions
+    vector<rp> result;
+    for (auto & i : quark_idx) {
+        if(i >= 0 && i < mc_particles.size()) {
+            rp p;
+            p.momentum[0] = mc_particles[i].momentum.x;
+            p.momentum[1] = mc_particles[i].momentum.y;
+            p.momentum[2] = mc_particles[i].momentum.z;
+            //p.energy = mc_particles[i].energy;
+            // get energy
+            p.energy = std::sqrt(mc_particles[i].momentum.x * mc_particles[i].momentum.x +
+                                     mc_particles[i].momentum.y * mc_particles[i].momentum.y +
+                                     mc_particles[i].momentum.z * mc_particles[i].momentum.z +
+                                     mc_particles[i].mass * mc_particles[i].mass);
+            const float px = p.momentum[0];
+            const float py = p.momentum[1];
+            const float pz = p.momentum[2];
+            const float e  = p.energy;
+            const float m2 = e*e - (px*px + py*py + pz*pz);
+            p.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
+            p.charge = 0; // Quarks have fractional charge, set to 0 for jets
+            result.push_back(p);
+        }
+    }
+    return convert(result);
 }
 
 Vec_rp get_jets_from_recojetlabels(vector<int> RecoJetLabels, Vec_rp RecoParticles) {

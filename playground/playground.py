@@ -8,9 +8,9 @@ inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 
 processList = {
     'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
-    #"p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
-    #"p8_ee_ZH_6jet_ecm365": {'fraction': 1},
-    #"p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
+    "p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
+    "p8_ee_ZH_6jet_ecm365": {'fraction': 1},
+    "p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
 
     ## Not used below
     # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
@@ -75,13 +75,9 @@ def build_graph(df, dataset):
     df = df.Define("weight", "1.0")
     weightsum = df.Sum("weight")
     df = df.Define("MC_quark_index", "FCCAnalyses::ZHfunctions::get_MC_quark_index(Particle);")
-    #print("MC quark index:", df.AsNumpy(["MC_quark_index"])["MC_quark_index"])
     df = df.Define("GT_labels", "FCCAnalyses::ZHfunctions::getGTLabels(MC_quark_index, Particle, _Particle_daughters.index);")
-    # print the GT labels
-    # print
     print("GT labels:", df.AsNumpy(["GT_labels"])["GT_labels"])
     df = df.Define("MClinks", "FCCAnalyses::ZHfunctions::getRP2MC_index(_RecoMCLink_from.index, _RecoMCLink_to.index, ReconstructedParticles, Particle)")
-    #print("finished mclinks")
     df = df.Define("mc2rp", "MClinks.second")
     df = df.Define("IdealClusteringRecoJetsLabels", "FCCAnalyses::ZHfunctions::convertMCJetLabelsIntoRecoJetLabels(GT_labels, mc2rp)")
     print("IdealClusteringRecoJetsLabels:", df.AsNumpy(["IdealClusteringRecoJetsLabels"])["IdealClusteringRecoJetsLabels"])
@@ -94,5 +90,9 @@ def build_graph(df, dataset):
     #df = df.Define("njets", "IdealClusteringRecoJets.size()")
     df = df.Define("njets", "IdealClusteringRecoJets.size()")
     hist = df.Histo1D(("h_njets_ideal_clustering", "N of jets (ideal clustering);N_{jets};Entries", 5, 0, 5), "njets")
+    #if plot_filter(df.AsNumpy(["ratio_jet_energies_fancy"])["ratio_jet_energies_fancy"]):
+    #    # event passed the filter. now plot it
+    #    df = df.Define("_serialized_filt_event", "FCCAnalyses::ZHfunctions::serialize_event(ReconstructedParticles)")
+    #    df = df.Define("_serialized_filt_event_jets", "FCCAnalyses::ZHfunctions::serialize_event(Particle)")
     return [hist], weightsum
 

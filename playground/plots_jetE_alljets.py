@@ -17,7 +17,7 @@ formats        = ['png','pdf']
 #inputDir       = '../../idea_fullsim/fast_sim/histograms/greedy_matching'
 
 outdir         = '../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets'
-inputDir       = '../../idea_fullsim/fast_sim/histograms/greedy_matching'
+inputDir       = '../../idea_fullsim/fast_sim/histograms'
 
 plotStatUnc    = True
 
@@ -27,7 +27,8 @@ colors['ZH'] = ROOT.kBlue+1
 #colors["ZHll"] = ROOT.kGreen+2
 colors["ZHvv"] = ROOT.kCyan+2
 colors["ZH6jet"] = ROOT.kMagenta
-
+colors["ZHbbbb"] = ROOT.kOrange+7
+colors["ZHvvgg"] = ROOT.kGray+1
 
 #procs = {}
 #procs['signal'] = {'ZH':['wzp6_ee_mumuH_ecm240']}
@@ -40,15 +41,20 @@ procs["signal"] = {
     #"ZHll": ["p8_ee_ZH_llbb_ecm365"],
     "ZH6jet": ["p8_ee_ZH_6jet_ecm365"],
     "ZHvv": ["p8_ee_ZH_vvbb_ecm365"],
+    "ZHbbbb": ["p8_ee_ZH_bbbb_ecm365"],
+    "ZHvvgg": ["p8_ee_ZH_vvgg_ecm365"],
 }
 
 procs["backgrounds"] = {}
+
 legend = {}
 legend['WW'] = "ee->WW->qqqq"
 legend["ZH"] = "ee->ZH->qqbb"
 #legend["ZHll"] = "ee->ZH->llbb"
 legend["ZH6jet"] = "ee->Z(qq)H(WW->qqqq)"
 legend["ZHvv"] = "ee->ZH->vvbb"
+legend["ZHbbbb"] = "ee->ZH->bbbb"
+legend["ZHvvgg"] = "ee->ZH->vvgg"
 #legend['n_truth'] = 'N Truth Particles'
 
 hists = {}
@@ -95,7 +101,7 @@ hists["h_E_all_jets"] = {
     "output":   "E_of_all_reco_jets",
     "logy":     False,
     "stack":    False,
-    "ymax": 15000,
+    #"ymax": 15000,
     #"rebin":    100,
     #"xmin":     120,
     #"xmax":     140,
@@ -142,3 +148,28 @@ hists["h_eta_gen"] = {
     "ytitle":   "Events",
 }
 
+
+hists["h_dist_jets_gen"] = {
+    "output": "h_dist_jets_gen",
+    "logy": False,
+    "stack": False,
+    "xtitle": "DeltaR between gen jets",
+    "ytitle": "Pairs of gen jets",
+}
+
+
+hists["h_min_dist_jets_gen"] = {
+    "output": "h_min_dist_jets_gen",
+    "logy": False,
+    "stack": False,
+    "xtitle": "Min. DeltaR between gen jets",
+    "ytitle": "Events",
+}
+
+hists["h_min_dist_jets_reco"] = {
+    "output": "h_min_dist_jets_reco",
+    "logy": False,
+    "stack": False,
+    "xtitle": "Min. DeltaR between reco jets",
+    "ytitle": "Events",
+}

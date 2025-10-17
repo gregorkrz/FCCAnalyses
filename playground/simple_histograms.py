@@ -14,39 +14,35 @@ root_files = [f for f in os.listdir(inputDir) if f.endswith(".root")]
 if "p8_ee_ZH_llbb_ecm365.root" in root_files:
     root_files.remove("p8_ee_ZH_llbb_ecm365.root")
 plt.figure(figsize=(8, 6))
-
 for fname in root_files:
     file_path = os.path.join(inputDir, fname)
     f = ROOT.TFile.Open(file_path)
     if not f or f.IsZombie():
         print(f"Could not open {fname}")
         continue
-
     hist = f.Get("h_fancy")
     if not hist:
         print(f"No 'h_fancy' histogram in {fname}")
         f.Close()
         continue
-
     # Convert histogram to numpy arrays
     n_bins = hist.GetNbinsX()
     x_vals = np.array([hist.GetBinCenter(i) for i in range(1, n_bins + 1)])
     y_vals = np.array([hist.GetBinContent(i) for i in range(1, n_bins + 1)])
-
     # Normalize
     integral = np.sum(y_vals)
+    print("Integral of histogram in {}: {}".format(fname, integral))
     if integral > 0:
         y_vals = y_vals / integral
     else:
         print(f"Warning: {fname} histogram integral = 0")
-
     # Plot
     label = os.path.splitext(fname)[0]
     plt.plot(x_vals, y_vals, label=label)
-
     f.Close()
 
-plt.xlabel("X")
+plt.xlabel("E_reco / E_true")
+plt.xlim([0.9, 1.1])
 plt.ylabel("Normalized Entries")
 plt.title("Comparison of h_fancy histograms")
 plt.legend()
@@ -58,6 +54,7 @@ plt.savefig("../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jet
 # also plot a log y version
 plt.yscale("log")
 plt.ylim(1e-5, 1)
+plt.xlim([0.5, 1.5])
 plt.savefig("../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/norm_E_over_true_overlaid_logy.pdf")
 #plt.show()
 
@@ -76,18 +73,19 @@ for fname in root_files:
         print(f"No required histograms in {fname}")
         f.Close()
         continue
-
     # Convert histograms to numpy arrays
     n_bins = hist_all.GetNbinsX()
     x_vals = np.array([hist_all.GetBinCenter(i) for i in range(1, n_bins + 1)])
-    y_all = np.array([hist_all.GetBinContent(i) for i in range(1, n_bins + 1)])
-    y_matched = np.array([hist_matched.GetBinContent(i) for i in range(1, n_bins + 1)])
+    # remove the xvals larger than 175
+    filt = x_vals <= 175
+    x_vals = x_vals[filt]
+    y_all = np.array([hist_all.GetBinContent(i) for i in range(1, n_bins + 1)])[filt]
+    y_matched = np.array([hist_matched.GetBinContent(i) for i in range(1, n_bins + 1)])[filt]
 
     # Calculate ratio
     with np.errstate(divide='ignore', invalid='ignore'):
         ratio = np.true_divide(y_matched, y_all)
         ratio[~np.isfinite(ratio)] = 0  # set inf and NaN to 0
-
     # Plot
     label = os.path.splitext(fname)[0]
     plt.plot(x_vals, ratio, label=label)
