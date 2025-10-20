@@ -23,34 +23,14 @@
 namespace FCCAnalyses { namespace ZHfunctions {
 
 // TRUTH TOOLS
+
 vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the MCParticle collection (the ones which jets we then detect)
     std::vector<int> quark_indices;
     for(size_t i = 0; i < mc.size(); ++i) {
+        //rdfVerbose << "PDG " << mc[i].PDG << " status " << mc[i].generatorStatus;
         auto & p = mc[i];
-        if (((p.PDG < 5) || (p.PDG == 21)) && p.generatorStatus == 23) { // Quarks only (direct products of the hard interaction)
+        if (((abs(p.PDG) <= 5) || (p.PDG == 21)) && p.generatorStatus == 23) {  // Quarks only (direct products of the hard interaction)
             quark_indices.push_back(i);
-        }
-    }
-    //cout << "Quark indices: " << quark_indices << endl;
-    // print the quark indices
-
-    return quark_indices;
-}
-
-vector<int> get_MC_quark_index_for_Higgs(Vec_mc mc) {
-    // get the quark indices, but only for the ones that are direct descendants of the Higgs
-    std::vector<int> quark_indices;
-    for(size_t i = 0; i < mc.size(); ++i) {
-        auto & p = mc[i];
-        if (((p.PDG < 5) || (p.PDG == 21)) && p.generatorStatus == 23) { // Quarks only (direct products of the hard interaction)
-            // check if the mother is a Higgs (PDG 25)
-            int mother_index = p.parents_begin;
-            if(mother_index >= 0 && mother_index < mc.size()) {
-                auto & mother = mc[mother_index];
-                if(mother.PDG == 25) {
-                    quark_indices.push_back(i);
-                }
-            }
         }
     }
     return quark_indices;
@@ -119,9 +99,7 @@ std::vector<int> get_list_of_direct_particles_from_decay(int i,
   // i = index of a MC particle in the Particle block
   // in = the Particle collection
   // ind = the block with the indices for the daughters, Particle#1.index
-
   // returns a vector with the indices (in the Particle block) of the daughters of the particle i
-
   int db = in.at(i).daughters_begin ;
   int de = in.at(i).daughters_end;
   if  ( db == de ) return res;   // particle is stable
@@ -150,12 +128,52 @@ std::vector<int> get_list_of_end_decay_products_recursive(int i,
     auto daughters = get_list_of_end_decay_products_recursive(daughter_index, in, ind);
     res.insert(res.end(), daughters.begin(), daughters.end());
   }
-  // convert res such that there are no duplicates
+  // Convert res such that there are no duplicates
     std::sort(res.begin(), res.end());
     res.erase(std::unique(res.begin(), res.end()), res.end());
         //rdfVerbose  << " part_idx=" << i << ",decay_products=" << int_array_to_string(res) << endl;
 
     return res;
+}
+
+vector<int> get_MC_quark_index_for_Higgs(Vec_mc mc, const ROOT::VecOps::RVec<int>& ind) {
+    // Get the quark indices, but only for the ones that are direct descendants of the Higgs
+    std::vector<int> quark_indices;
+    for(size_t i = 0; i < mc.size(); ++i) {
+        auto & p = mc[i];
+        if ((p.PDG == 25 ) && (p.generatorStatus == 44)) {
+            rdfVerbose << "Found Higgs at index " << i << endl;
+            // Higgs - now find 1- or 2-hop 'daughters'
+            // log
+            vector<int> daughters = get_list_of_direct_particles_from_decay(i, mc, ind);
+            // loop through daughters and if any are quarks with status 23 add to quark_indices
+            for(auto & d_idx : daughters) {
+                auto & d = mc[d_idx];
+                if (((abs(d.PDG) <= 5) || (d.PDG == 21)) && d.generatorStatus == 23) {  // Quarks only (direct products of the hard interaction)
+                    quark_indices.push_back(d_idx);
+                }
+            }
+            // if quark_indices is empty, it might be H->WW->qqqq, so do another loop through daughters to find W's and then their daughters
+            if(quark_indices.size() == 0) {
+                rdfVerbose << "Higgs at index " << i << " has no direct quark daughters, checking for W decays." << endl;
+                for(auto & d_idx : daughters) {
+                    auto & d = mc[d_idx];
+                    rdfVerbose << "  Daughter PDG: " << d.PDG << ", status: " << d.generatorStatus << "idx" <<  d_idx<< endl;
+                    vector<int> w_daughters = get_list_of_direct_particles_from_decay(d_idx, mc, ind);
+                    for(auto & wd_idx : w_daughters) {
+                        auto & wd = mc[wd_idx];
+                        if (((abs(wd.PDG) <= 5) || (wd.PDG == 21)) && wd.generatorStatus == 23) {  // Quarks only (direct products of the hard interaction)
+                            quark_indices.push_back(wd_idx);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Print the quark indices as int_array_to_string
+    rdfVerbose << "Quark indices from Higgs: " << int_array_to_string(quark_indices) << endl;
+    //exit(0);
+    return quark_indices;
 }
 
 vector<float> min(vector<float> in) {
@@ -282,6 +300,26 @@ Vec_rp get_GT_jets_from_initial_particles(Vec_mc mc_particles, vector<int> quark
             p.charge = 0; // Quarks have fractional charge, set to 0 for jets
             result.push_back(p);
         }
+    }
+    return convert(result);
+}
+
+Vec_rp vec_mc_to_rp(Vec_mc vec_mc) {
+    vector<rp> result;
+    for (auto & p : vec_mc) {
+        rp temp;
+        temp.momentum[0] = p.momentum.x;
+        temp.momentum[1] = p.momentum.y;
+        temp.momentum[2] = p.momentum.z;
+
+        const float px = temp.momentum[0];
+        const float py = temp.momentum[1];
+        const float pz = temp.momentum[2];
+        const float e  = temp.energy;
+        const float m2 = e*e - (px*px + py*py + pz*pz);
+        temp.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
+        temp.charge = p.charge;
+        result.push_back(temp);
     }
     return convert(result);
 }
@@ -439,6 +477,32 @@ float invariant_mass(Vec_rp jets) { // vec_rp could be either reco jets, gen jet
         total_lv += j_lv;
     }
     return total_lv.M();
+}
+
+vector<int> merge_mappings(vector<int> map1, vector<int> map2) {
+    // Merge two mappings: map1 maps A->B, map2 maps B->C, return mapping A->C
+    vector<int> result;
+    for(auto & idx : map1) {
+        if(idx >= 0 && idx < map2.size()) {
+            result.push_back(map2[idx]);
+        }
+        else {
+            result.push_back(-1);
+        }
+    }
+    return result;
+}
+
+Vec_rp filter_jets(Vec_rp jets, vector<int> indices) {
+    // Return a Vec_rp of the jets at the specified indices
+    Vec_rp result;
+    for(auto & idx : indices) {
+        if(idx >= 0 && idx < jets.size()) {
+            result.push_back(jets[idx]);
+        }
+    }
+    //return convert(result);
+    return result;
 }
 
 std::vector<int> get_reco_truth_jet_mapping(Vec_rp reco_jets, Vec_rp gen_jets, float dR) {

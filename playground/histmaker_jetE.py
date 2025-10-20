@@ -1,18 +1,17 @@
 # fccanalysis run histmaker_jetE.py
 # source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
 # list of processes (mandatory)
+from truth_matching import get_Higgs_mass_with_truth_matching
 
 inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 
 processList = {
-    # 'p8_ee_ZZ_ecm240':{'fraction':1},
-    'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
-    "p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
-    #"p8_ee_ZH_llbb_ecm365": {'fraction': 1},
+    #'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
+    #"p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
     "p8_ee_ZH_6jet_ecm365": {'fraction': 1},
-    "p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
-    "p8_ee_ZH_bbbb_ecm365": {'fraction': 1},
-    "p8_ee_ZH_vvgg_ecm365": {'fraction': 1},
+    #"p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
+    #"p8_ee_ZH_bbbb_ecm365": {'fraction': 1},
+    #"p8_ee_ZH_vvgg_ecm365": {'fraction': 1},
     # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
     #'p8_ee_WW_mumu_ecm240': {'fraction': 1, 'crossSection': 0.25792},
     #'p8_ee_ZZ_mumubb_ecm240': {'fraction': 1, 'crossSection': 2 * 1.35899 * 0.034 * 0.152},
@@ -105,8 +104,6 @@ def build_graph(df, dataset):
     df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
     df = df.Define("genjet_energies_matched", "std::get<2>(matching_processing)")
     df = df.Define("genjet_etas_matched", "std::get<3>(matching_processing)")
-
-
     # Bin the ratio_jet_energies_fancy according to genjet_energies (bins [0, 50, 100, 150, 200])
     histograms = [hist_genjet_all_energies, hist_genjet_matched_energies, hist_dist_jets_gen, hist_dist_jets_reco, hist_min_dist_jets_reco, hist_min_dist_jets_gen]
     for i in range(len(bins) - 1):
@@ -127,25 +124,30 @@ def build_graph(df, dataset):
     h_Ejet = df.Histo1D(("h_E_all_jets", "E of jet;E_reco;Events", 100, 0, 300), "JetDurhamN4.energy")
     h_Egenjet = df.Histo1D(("h_E_all_genjets", "E of genjet;E_gen;Events", 100, 0, 300), "GenJetDurhamN4.energy")
     ### Invariant mass plots ###
-    df = df.Define("invariant_mass_genjets", "FCCAnalyses::ZHfunctions::invariant_mass(GenJetDurhamN4)")
-    df = df.Define("invariant_mass_recojets", "FCCAnalyses::ZHfunctions::invariant_mass(JetDurhamN4)")
+    #df = df.Define("invariant_mass_genjets", "FCCAnalyses::ZHfunctions::invariant_mass(GenJetDurhamN4)")
+    #df = df.Define("invariant_mass_recojets", "FCCAnalyses::ZHfunctions::invariant_mass(JetDurhamN4)")
     # Should be the same as the mass from particles in exclusive jets case, just a double-check
-    df = df.Define("invariant_mass_gen_particles", "FCCAnalyses::ZHfunctions::invariant_mass(FCCAnalyses::ZHfunctions::stable_particles(Particle))")
-    df = df.Define("invariant_mass_reco_particles", "FCCAnalyses::ZHfunctions::invariant_mass(ReconstructedParticles)")
-    h_mass = [
-        df.Histo1D(("h_invariant_mass_genjets", "Invariant mass of gen jets;M_genjets;Events", 100, 0, 250), "invariant_mass_genjets"),
-        df.Histo1D(("h_invariant_mass_recojets", "Invariant mass of reco jets;M_recojets;Events", 100, 0, 250), "invariant_mass_recojets"),
-        df.Histo1D(("h_invariant_mass_gen_particles", "Invariant mass of gen particles;M_genparticles;Events", 100, 0, 250), "invariant_mass_gen_particles"),
-        df.Histo1D(("h_invariant_mass_reco_particles", "Invariant mass of reco particles;M_recoparticles;Events", 100, 0, 250), "invariant_mass_reco_particles")
-    ]
+    #df = df.Define("invariant_mass_gen_particles", "FCCAnalyses::ZHfunctions::invariant_mass(FCCAnalyses::ZHfunctions::stable_particles(Particle))")
+    #df = df.Define("invariant_mass_reco_particles", "FCCAnalyses::ZHfunctions::invariant_mass(ReconstructedParticles)")
+    #h_mass = [
+    #    df.Histo1D(("h_invariant_mass_genjets", "Invariant mass of gen jets;M_genjets;Events", 100, 0, 250), "invariant_mass_genjets"),
+    #    df.Histo1D(("h_invariant_mass_recojets", "Invariant mass of reco jets;M_recojets;Events", 100, 0, 250), "invariant_mass_recojets"),
+    #    df.Histo1D(("h_invariant_mass_gen_particles", "Invariant mass of gen particles;M_genparticles;Events", 100, 0, 250), "invariant_mass_gen_particles"),
+    #    df.Histo1D(("h_invariant_mass_reco_particles", "Invariant mass of reco particles;M_recoparticles;Events", 100, 0, 250), "invariant_mass_reco_particles")
+    #]
+
     # count -1s  in ratio_jet_energies_fancy
     # print size of ratio_jet_energies_fancy
     df = df.Define("ratio_jet_energies_fancy_E0", "ratio_jet_energies_fancy[0]")
     h_fancy1 = df.Histo1D(("h_fancy_E0", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 150, 0.4, 1.2), "ratio_jet_energies_fancy_E0")
     h_unmatched_reco_jets = df.Histo1D(("h_unmatched_reco_jets", "E of unmatched reco jets;E_reco;Events", 100, 0, 300), "E_of_unmatched_reco_jets")
-    results = [h_fancy, h_fancy1, h_unmatched_reco_jets, h_Ejet, h_Egenjet] + h_mass
+    results = [h_fancy, h_fancy1, h_unmatched_reco_jets, h_Ejet, h_Egenjet] #+ h_mass
     for i in range(4):
         df = df.Define("jet_E{}".format(i), "ratio_jet_energies[{}]".format(i))
         h_E = df.Histo1D(("h_E{}".format(i), "E_reco/E_true;E_reco / E_true;Events", 50, 0.8, 1.2), "jet_E{}".format(i))
         results.append(h_E)
+    df = get_Higgs_mass_with_truth_matching(df)
+    h_mH_reco = df.Histo1D(("h_mH_reco", "Higgs mass from reco jets;M_H (reco jets);Events", 100, 0, 250), "inv_mass_reco")
+    h_mH_gen = df.Histo1D(("h_mH_gen", "Higgs mass from gen jets;M_H (gen jets);Events", 100, 0, 250), "inv_mass_gen")
+    results = results + [h_mH_reco, h_mH_gen]
     return results + histograms + [h_eta, h_eta_gen], weightsum
