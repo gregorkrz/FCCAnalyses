@@ -4,16 +4,17 @@
 # source  /cvmfs/sw-nightlies.hsf.org/key4hep/setup.sh
 import os
 from event_displays import Vec_RP, Event
+from truth_matching import get_Higgs_mass_with_truth_matching
 
 inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 
 processList = {
-    'p8_ee_WW_ecm365_fullhad': {'fraction': 0.01},
-    "p8_ee_ZH_qqbb_ecm365": {'fraction': 0.01},
-    "p8_ee_ZH_6jet_ecm365": {'fraction': 0.01},
-    "p8_ee_ZH_vvbb_ecm365": {'fraction': 0.01},
-    "p8_ee_ZH_bbbb_ecm365": {'fraction': 0.01},
-    "p8_ee_ZH_vvgg_ecm365": {'fraction': 0.01},
+    #'p8_ee_WW_ecm365_fullhad': {'fraction': 0.01},
+    #"p8_ee_ZH_qqbb_ecm365": {'fraction': 0.01},
+    #"p8_ee_ZH_6jet_ecm365": {'fraction': 0.01},
+    "p8_ee_ZH_vvbb_ecm365": {"fraction": 0.0001},
+    #"p8_ee_ZH_bbbb_ecm365": {'fraction': 0.01},
+    #"p8_ee_ZH_vvgg_ecm365": {'fraction': 0.01},
     #"p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
 }
 
@@ -41,7 +42,7 @@ includePaths = ["functions.h", "utils.h"]
 #inputDir = "../../idea_fullsim/fast_sim/outputs"
 
 # Optional: output directory, default is local running directory
-outputDir = "../../idea_fullsim/fast_sim/event_displays_1"
+outputDir = "../../idea_fullsim/fast_sim/event_displays_vvbb"
 #outputDir = "../../idea_fullsim/fast_sim/histograms"
 
 
@@ -79,7 +80,6 @@ def build_graph(df, dataset):
     df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
     l = df.AsNumpy(["ratio_jet_energies_fancy"])["ratio_jet_energies_fancy"]
     l = list([list(item) for item in l])
-
     df = df.Define("_serialized_evt", "FCCAnalyses::Utils::serialize_event(ReconstructedParticles);")
     df = df.Define("_serialized_evt_gen", "FCCAnalyses::Utils::serialize_event(FCCAnalyses::ZHfunctions::stable_particles(Particle));")
     df = df.Define("_serialized_jets", "FCCAnalyses::Utils::serialize_event(JetDurhamN4);")
@@ -89,6 +89,7 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_evt_gen_eta", "std::get<0>(_serialized_evt_gen);")
     df = df.Define("_serialized_evt_gen_phi", "std::get<1>(_serialized_evt_gen);")
     df = df.Define("_serialized_evt_gen_pt", "std::get<2>(_serialized_evt_gen);")
+    df = df.Define("_serialized_evt_gen_PDG", "std::get<3>(_serialized_evt_gen);")
     df = df.Define("_serialized_jets_eta", "std::get<0>(_serialized_jets);")
     df = df.Define("_serialized_jets_phi", "std::get<1>(_serialized_jets);")
     df = df.Define("_serialized_jets_pt", "std::get<2>(_serialized_jets);")
@@ -100,11 +101,20 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_genjets_eta", "std::get<0>(_serialized_genjets);")
     df = df.Define("_serialized_genjets_phi", "std::get<1>(_serialized_genjets);")
     df = df.Define("_serialized_genjets_pt", "std::get<2>(_serialized_genjets);")
+
+    # Also get the truth particles (quarks etc)
+    df = get_Higgs_mass_with_truth_matching(df)
+    df = df.Define("MCparts", "FCCAnalyses::Utils::serialize_event(MC_part_asjets)")
+    df = df.Define("MCparts_eta", "std::get<0>(MCparts);")
+    df = df.Define("MCparts_phi", "std::get<1>(MCparts);")
+    df = df.Define("MCparts_pt", "std::get<2>(MCparts);")
+
     tonumpy = df.AsNumpy(["_serialized_evt_eta", "_serialized_evt_phi", "_serialized_evt_pt", "_serialized_jets_eta",
                           "_serialized_jets_phi", "_serialized_jets_pt", "_serialized_initial_partons_eta",
                           "_serialized_initial_partons_phi", "_serialized_initial_partons_pt", "_serialized_genjets_eta",
                           "_serialized_genjets_phi", "_serialized_genjets_pt", "_serialized_evt_gen_eta",
-                          "_serialized_evt_gen_phi", "_serialized_evt_gen_pt"])
+                          "_serialized_evt_gen_phi", "_serialized_evt_gen_pt", "MCparts_eta", "MCparts_phi", "MCparts_pt",
+                          "_serialized_evt_gen_PDG"])
     tonumpy = {key: list([list(x) for x in tonumpy[key]]) for key in tonumpy}
     for event_idx in range(len(l)):
         if plot_filter(l[event_idx], idx=1):
@@ -115,19 +125,23 @@ def build_graph(df, dataset):
             eta, phi, pt = tonumpy["_serialized_evt_eta"][event_idx], tonumpy["_serialized_evt_phi"][event_idx], tonumpy["_serialized_evt_pt"][event_idx]
             vec_rp = Vec_RP(eta=eta, phi=phi, pt=pt)
             etamc, phimc, ptmc = tonumpy["_serialized_evt_gen_eta"][event_idx], tonumpy["_serialized_evt_gen_phi"][event_idx], tonumpy["_serialized_evt_gen_pt"][event_idx]
-            vec_mc = Vec_RP(eta=etamc, phi=phimc, pt=ptmc)
+            vec_mc = Vec_RP(eta=etamc, phi=phimc, pt=ptmc)#, txt=[str(pdg) for pdg in tonumpy["_serialized_evt_gen_PDG"][event_idx]])
             jets_eta, jets_phi, jets_pt = tonumpy["_serialized_jets_eta"][event_idx], tonumpy["_serialized_jets_phi"][event_idx], tonumpy["_serialized_jets_pt"][event_idx]
             jets_text = l[event_idx]
-            print("Jets_text:", jets_text)
             vec_jets = Vec_RP(eta=jets_eta, phi=jets_phi, pt=jets_pt, txt=[str(round(x, 2)) for x in jets_text])
             gt_eta, gt_phi, gt_pt = tonumpy["_serialized_initial_partons_eta"][event_idx], tonumpy["_serialized_initial_partons_phi"][event_idx], tonumpy["_serialized_initial_partons_pt"][event_idx]
             vec_gt = Vec_RP(eta=gt_eta, phi=gt_phi, pt=gt_pt)
             genjets_eta, genjets_phi, genjets_pt = tonumpy["_serialized_genjets_eta"][event_idx], tonumpy["_serialized_genjets_phi"][event_idx], tonumpy["_serialized_genjets_pt"][event_idx]
             vec_genjets = Vec_RP(eta=genjets_eta, phi=genjets_phi, pt=genjets_pt)
+            mcpart_eta, mcpart_phi, mcpart_pt = tonumpy["MCparts_eta"][event_idx], tonumpy["MCparts_phi"][event_idx], tonumpy["MCparts_pt"][event_idx]
+            vec_mcparts = Vec_RP(eta=mcpart_eta, phi=mcpart_phi, pt=mcpart_pt)
+            print("Length of initial partons: ", len(mcpart_eta))
             event = Event(vec_rp=vec_rp, additional_collections={
-                "RecoJets": vec_jets, "InitialPartons": vec_gt, "GenJets": vec_genjets}
+                "RecoJets": vec_jets, "InitialPartons": vec_mcparts, "GenJets": vec_genjets,
+                "Status1GenParticles": vec_mc}
             )
             fig, ax = event.display()
+            ax.set_title("{}, event {}, len(in.part.)={}".format(dataset, global_event_idx.get(dataset, 0), len(mcpart_eta)))
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
             fig.savefig(os.path.join(outputDir, "event_{}_{}.png".format(dataset, global_event_idx.get(dataset, 0))))

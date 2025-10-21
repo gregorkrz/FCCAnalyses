@@ -20,12 +20,16 @@ class Event:
         if self.vec_mc is not None:
             ax.scatter(self.vec_mc.eta, self.vec_mc.phi, s=self.vec_mc.pt, c='r', label='MC Particles', alpha=0.5)
         c = self.colors if self.colors else 'b'
-        ax.scatter(self.vec_rp.eta, self.vec_rp.phi, s=self.vec_rp.pt, c=c, label='Reconstructed Particles', alpha=0.5)
+        ax.scatter(self.vec_rp.eta, self.vec_rp.phi, s=self.vec_rp.pt, c=c, label='Reconstructed Particles', alpha=0.1)
         for label, vec in self.additional_collections.items():
             if vec.txt:
                 for i, txt in enumerate(vec.txt):
                     ax.annotate(txt, (vec.eta[i], vec.phi[i]), fontsize=8, alpha=0.7)
             ax.scatter(vec.eta, vec.phi, s=vec.pt, label=label, alpha=0.5)
+        # autoscale the axes
+        #ax.autoscale()
+        ax.set_xlim([-5, 5])
+        ax.set_ylim([-3.5, 3.5])
         ax.set_xlabel('Eta')
         ax.set_ylabel('Phi')
         ax.set_title('Event Display')

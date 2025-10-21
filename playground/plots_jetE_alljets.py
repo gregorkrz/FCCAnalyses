@@ -36,7 +36,7 @@ colors["ZHvvgg"] = ROOT.kGray+1
 
 procs = {}
 procs["signal"] = {
-    "WW": ["p8_ee_WW_ecm365_fullhad"],
+    #"WW": ["p8_ee_WW_ecm365_fullhad"],
     "ZH": ["p8_ee_ZH_qqbb_ecm365"],
     #"ZHll": ["p8_ee_ZH_llbb_ecm365"],
     "ZH6jet": ["p8_ee_ZH_6jet_ecm365"],

@@ -112,7 +112,7 @@ std::vector<int> get_list_of_direct_particles_from_decay(int i,
 std::vector<int> get_list_of_end_decay_products_recursive(int i,
                                            const ROOT::VecOps::RVec<edm4hep::MCParticleData>& in,
                                            const ROOT::VecOps::RVec<int>& ind) {
-   rdfVerbose << "  Particle idx " << i << "  direct daughters: " << int_array_to_string(get_list_of_direct_particles_from_decay(i, in, ind)) << endl;
+   //rdfVerbose << "  Particle idx " << i << "  direct daughters: " << int_array_to_string(get_list_of_direct_particles_from_decay(i, in, ind)) << endl;
    std::vector<int> res;
    int db = in.at(i).daughters_begin;
    int de = in.at(i).daughters_end;
@@ -128,37 +128,46 @@ std::vector<int> get_list_of_end_decay_products_recursive(int i,
     auto daughters = get_list_of_end_decay_products_recursive(daughter_index, in, ind);
     res.insert(res.end(), daughters.begin(), daughters.end());
   }
-  // Convert res such that there are no duplicates
+    // Convert res such that there are no duplicates
     std::sort(res.begin(), res.end());
     res.erase(std::unique(res.begin(), res.end()), res.end());
-        //rdfVerbose  << " part_idx=" << i << ",decay_products=" << int_array_to_string(res) << endl;
-
+    //rdfVerbose  << " part_idx=" << i << ",decay_products=" << int_array_to_string(res) << endl;
     return res;
 }
 
-vector<int> get_MC_quark_index_for_Higgs(Vec_mc mc, const ROOT::VecOps::RVec<int>& ind) {
+
+vector<int> get_MC_quark_index_for_Higgs(Vec_mc mc, const ROOT::VecOps::RVec<int>& ind, bool debug = false) {
     // Get the quark indices, but only for the ones that are direct descendants of the Higgs
     std::vector<int> quark_indices;
     for(size_t i = 0; i < mc.size(); ++i) {
         auto & p = mc[i];
-        if ((p.PDG == 25 ) && (p.generatorStatus == 44)) {
-            rdfVerbose << "Found Higgs at index " << i << endl;
+        if ((p.PDG == 25 ) && ((p.generatorStatus == 44) || (p.generatorStatus == 22))) {
+            if (debug) {
+                rdfVerbose << "Found Higgs at index " << i << endl;
+            }
             // Higgs - now find 1- or 2-hop 'daughters'
             // log
             vector<int> daughters = get_list_of_direct_particles_from_decay(i, mc, ind);
             // loop through daughters and if any are quarks with status 23 add to quark_indices
             for(auto & d_idx : daughters) {
                 auto & d = mc[d_idx];
+                if (debug) {
+                 rdfVerbose << "  Daughter index: " << d_idx << " PDG " << d.PDG <<  endl;
+                }
                 if (((abs(d.PDG) <= 5) || (d.PDG == 21)) && d.generatorStatus == 23) {  // Quarks only (direct products of the hard interaction)
                     quark_indices.push_back(d_idx);
                 }
             }
             // if quark_indices is empty, it might be H->WW->qqqq, so do another loop through daughters to find W's and then their daughters
             if(quark_indices.size() == 0) {
-                rdfVerbose << "Higgs at index " << i << " has no direct quark daughters, checking for W decays." << endl;
+                if (debug) {
+                   rdfVerbose << "Higgs at index " << i << " has no direct quark daughters, checking for W decays." << endl;
+                }
                 for(auto & d_idx : daughters) {
                     auto & d = mc[d_idx];
-                    rdfVerbose << "  Daughter PDG: " << d.PDG << ", status: " << d.generatorStatus << "idx" <<  d_idx<< endl;
+                    if (debug) {
+                          rdfVerbose << "  Daughter PDG: " << d.PDG << ", status: " << d.generatorStatus << "idx" <<  d_idx << endl;
+                    }
                     vector<int> w_daughters = get_list_of_direct_particles_from_decay(d_idx, mc, ind);
                     for(auto & wd_idx : w_daughters) {
                         auto & wd = mc[wd_idx];
@@ -171,8 +180,30 @@ vector<int> get_MC_quark_index_for_Higgs(Vec_mc mc, const ROOT::VecOps::RVec<int
         }
     }
     // Print the quark indices as int_array_to_string
-    rdfVerbose << "Quark indices from Higgs: " << int_array_to_string(quark_indices) << endl;
+
     //exit(0);
+    // return unique elements only
+
+    std::sort(quark_indices.begin(), quark_indices.end());
+    quark_indices.erase(std::unique(quark_indices.begin(), quark_indices.end()), quark_indices.end());
+        if (debug) {
+        rdfVerbose << "Quark indices from Higgs: " << int_array_to_string(quark_indices) << endl;
+        // if size of quark_indices is zero, make another loop through the particles.
+        // for each, if it's a higgs, print its status and daughters (pdg and idx and status)
+        rdfVerbose << "_-------" ;
+        for (size_t i = 0; i < mc.size(); ++i) {
+            auto & p = mc[i];
+            if (p.PDG == 25) {
+                rdfVerbose << "Higgs at index " << i << " status " << p.generatorStatus << " daughters: ";
+                vector<int> daughters = get_list_of_direct_particles_from_decay(i, mc, ind);
+                for(auto & d_idx : daughters) {
+                    auto & d = mc[d_idx];
+                    rdfVerbose << "  Daughter index: " << d_idx << " PDG " << d.PDG << " status " << d.generatorStatus << endl;
+                }
+            }
+        }
+    }
+
     return quark_indices;
 }
 
@@ -253,10 +284,11 @@ vector<int> convertMCJetLabelsIntoRecoJetLabels(vector<int> mc_labels, vector<in
     return result;
 }
 struct rp {
-float momentum[3] = {0,0,0};
+    float momentum[3] = {0,0,0};
     float energy = 0;
     float mass = 0;
     int charge = 0;
+    int PDG = 0;
 };
 
 Vec_rp convert(vector<rp> in) {
@@ -270,6 +302,7 @@ Vec_rp convert(vector<rp> in) {
         rp.energy = p.energy;
         rp.mass = p.mass;
         rp.charge = p.charge;
+        rp.PDG = p.PDG;
         out.push_back(rp);
     }
     return out;
@@ -304,6 +337,35 @@ Vec_rp get_GT_jets_from_initial_particles(Vec_mc mc_particles, vector<int> quark
     return convert(result);
 }
 
+Vec_rp select_rp(Vec_rp rpart, vector<int> mc_part_idx) {
+    // select the indices specificed by mc_part_idx out of vec_rp e.g. if mc_part_idx is [0,1,2], select 0, 1, and 2 out of there
+    vector<rp> result;
+    //rdfVerbose << "Selecting " << mc_part_idx.size() << " particles from reco particles of size " << rpart.size();
+    for (auto & k : mc_part_idx) {
+        if (k < rpart.size()) {
+            rp temp; // surely there must be a nicer way to do this?
+            temp.momentum[0] = rpart[k].momentum[0];
+            temp.momentum[1] = rpart[k].momentum[1];
+            temp.momentum[2] = rpart[k].momentum[2];
+            const float px = temp.momentum[0];
+            const float py = temp.momentum[1];
+            const float pz = temp.momentum[2];
+            const float e  = rpart[k].energy;
+            const float m2 = e*e - (px*px + py*py + pz*pz);
+            temp.mass = (m2 > 0.f) ? std::sqrt(m2)
+                                    : 0.f;
+            temp.energy = e;
+            temp.charge = rpart[k].charge;
+            result.push_back(temp);
+        }
+    }
+    //rdfVerbose << "Selected " << result.size() << " particles.";
+    //exit(1);
+    return convert(result);
+}
+
+
+
 Vec_rp vec_mc_to_rp(Vec_mc vec_mc) {
     vector<rp> result;
     for (auto & p : vec_mc) {
@@ -324,7 +386,7 @@ Vec_rp vec_mc_to_rp(Vec_mc vec_mc) {
     return convert(result);
 }
 
-Vec_rp get_jets_from_recojetlabels(vector<int> RecoJetLabels, Vec_rp RecoParticles) {
+Vec_rp get_jets_from_recojetlabels(vector<int> RecoJetLabels, Vec_rp RecoParticles, bool debug = false) {
   vector<rp> result;
   // Basic sanity check
   if (RecoJetLabels.size() != RecoParticles.size()) return convert(result);
@@ -409,7 +471,7 @@ std::vector<float> sort_jet_energies(Vec_rp jets) { // return a vector<float> of
     return energies;
 }
 
-std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_jets, float dR)
+std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_jets, float dR, bool debug = false)
 {
     // match reco jets to gen jets one-to-one by smallest ΔR, return vector<int> with
     // index of matched gen jet for each reco jet, -1 if no match found
@@ -417,6 +479,9 @@ std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_
     std::vector<char> used(gen_jets.size(), 0);
     struct Pair { int i, j; float dR2; };
     std::vector<Pair> pairs;
+    if (debug) {
+        rdfVerbose << " Recojet size " << reco_jets.size() << " Genjet size " << gen_jets.size();
+    }
     pairs.reserve(reco_jets.size() * gen_jets.size());
     // Precompute ΔR² for all pairs within cone
     for (size_t i = 0; i < reco_jets.size(); ++i) {
@@ -425,16 +490,24 @@ std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_
                       reco_jets[i].momentum.y,
                       reco_jets[i].momentum.z,
                       reco_jets[i].mass);
+          if (debug ) {
+                  rdfVerbose << "recoJet eta phi: " << rj_lv.Eta() << " " << rj_lv.Phi() << endl;
+
+          }
         for (size_t j = 0; j < gen_jets.size(); ++j) {
             TLorentzVector gj_lv;
             gj_lv.SetXYZM(gen_jets[j].momentum.x,
                           gen_jets[j].momentum.y,
                           gen_jets[j].momentum.z,
                           gen_jets[j].mass);
+            if (debug) {
+                rdfVerbose << "genJet eta phi: " << gj_lv.Eta() << " " << gj_lv.Phi() << endl;
+            }
             float dRval = rj_lv.DeltaR(gj_lv);
             if (dRval < dR)
                 pairs.push_back({(int)i, (int)j, dRval * dRval});
         }
+
     }
     // Sort by smallest ΔR first
     std::sort(pairs.begin(), pairs.end(),
@@ -445,6 +518,10 @@ std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_
             result[p.i] = p.j;
             used[p.j] = 1;
         }
+    }
+    if (debug) {
+        exit(1);
+
     }
     return result;
 }
@@ -462,6 +539,7 @@ Vec_rp stable_particles(Vec_mc mc_particles) {
             //exit(0);
             temp.mass = p.mass;
             temp.charge = p.charge;
+            temp.PDG = p.PDG;
             result.push_back(temp);
         }
     }

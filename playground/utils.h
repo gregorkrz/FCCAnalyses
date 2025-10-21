@@ -20,18 +20,20 @@
 
 
 namespace FCCAnalyses { namespace Utils {
-    tuple<vector<float>, vector<float>, vector<float>> serialize_event(Vec_rp rp) {
+    tuple<vector<float>, vector<float>, vector<float>, vector<int>> serialize_event(Vec_rp rp) {
     // return tuple of eta, phi, pt
     vector<float> eta;
     vector<float> phi;
     vector<float> pt;
+    vector<int> pdg;
     for(auto & p : rp) {
         TLorentzVector p_lv;
         p_lv.SetXYZM(p.momentum.x, p.momentum.y, p.momentum.z, p.mass);
         eta.push_back(p_lv.Eta()); // Multiplied by 100 to convert
         phi.push_back(p_lv.Phi());
         pt.push_back(p_lv.Pt());
+        pdg.push_back(p.PDG);
     }
-    return tuple(eta, phi, pt);
+    return tuple(eta, phi, pt, pdg);
     }
 }}

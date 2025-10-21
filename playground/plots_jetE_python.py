@@ -42,4 +42,3 @@ legend.Draw()
 c.Update()
 c.SaveAs("../../idea_fullsim/fast_sim/histograms_view/p8_ee_WW_ecm365_fullhad/histograms_jetE_sorted_overlay.pdf")
 print("Done")
-

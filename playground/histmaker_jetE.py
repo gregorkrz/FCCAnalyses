@@ -7,11 +7,11 @@ inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 
 processList = {
     #'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
-    #"p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
+    "p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
     "p8_ee_ZH_6jet_ecm365": {'fraction': 1},
-    #"p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
-    #"p8_ee_ZH_bbbb_ecm365": {'fraction': 1},
-    #"p8_ee_ZH_vvgg_ecm365": {'fraction': 1},
+    "p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
+    "p8_ee_ZH_bbbb_ecm365": {'fraction': 1},
+    "p8_ee_ZH_vvgg_ecm365": {'fraction': 1},
     # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
     #'p8_ee_WW_mumu_ecm240': {'fraction': 1, 'crossSection': 0.25792},
     #'p8_ee_ZZ_mumubb_ecm240': {'fraction': 1, 'crossSection': 2 * 1.35899 * 0.034 * 0.152},
@@ -28,8 +28,6 @@ processList = {
 
 bins = [0, 50, 75, 100, 125,  150, 175, 200]
 bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
-
-
 
 # Production tag when running over EDM4Hep centrally produced events, this points to the yaml files for getting sample statistics (mandatory)
 # prodTag     = "FCCee/winter2023/IDEA/"
@@ -120,7 +118,6 @@ def build_graph(df, dataset):
         hh = df.Histo1D(("binned_E_reco_over_true_eta_{}_{}".format(neg_format(bins_eta[i]), neg_format(bins_eta[i+1])), "Ereco/Etrue;Ereco/Etrue;Events", 300, 0.8, 1.2), "binned_E_reco_over_true_eta_{}_{}".format(neg_format(bins_eta[i]), neg_format(bins_eta[i+1])))
         histograms.append(hh)
     h_fancy = df.Histo1D(("h_fancy", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 300, 0.5, 1.5), "ratio_jet_energies_fancy")
-
     h_Ejet = df.Histo1D(("h_E_all_jets", "E of jet;E_reco;Events", 100, 0, 300), "JetDurhamN4.energy")
     h_Egenjet = df.Histo1D(("h_E_all_genjets", "E of genjet;E_gen;Events", 100, 0, 300), "GenJetDurhamN4.energy")
     ### Invariant mass plots ###
@@ -135,7 +132,6 @@ def build_graph(df, dataset):
     #    df.Histo1D(("h_invariant_mass_gen_particles", "Invariant mass of gen particles;M_genparticles;Events", 100, 0, 250), "invariant_mass_gen_particles"),
     #    df.Histo1D(("h_invariant_mass_reco_particles", "Invariant mass of reco particles;M_recoparticles;Events", 100, 0, 250), "invariant_mass_reco_particles")
     #]
-
     # count -1s  in ratio_jet_energies_fancy
     # print size of ratio_jet_energies_fancy
     df = df.Define("ratio_jet_energies_fancy_E0", "ratio_jet_energies_fancy[0]")
@@ -151,3 +147,4 @@ def build_graph(df, dataset):
     h_mH_gen = df.Histo1D(("h_mH_gen", "Higgs mass from gen jets;M_H (gen jets);Events", 100, 0, 250), "inv_mass_gen")
     results = results + [h_mH_reco, h_mH_gen]
     return results + histograms + [h_eta, h_eta_gen], weightsum
+
