@@ -36,4 +36,12 @@ namespace FCCAnalyses { namespace Utils {
     }
     return tuple(eta, phi, pt, pdg);
     }
+
+    vector<float> rvec_to_vector(ROOT::VecOps::RVec<float> in) {
+        vector<float> out;
+        for(auto & v : in) {
+            out.push_back(v);
+        }
+        return out;
+    }
 }}

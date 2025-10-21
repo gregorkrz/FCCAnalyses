@@ -2,6 +2,8 @@
 # source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
 # list of processes (mandatory)
 from truth_matching import get_Higgs_mass_with_truth_matching
+from jet_helper import get_jet_vars
+
 
 inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 
@@ -17,6 +19,16 @@ processList = {
     #'p8_ee_ZZ_mumubb_ecm240': {'fraction': 1, 'crossSection': 2 * 1.35899 * 0.034 * 0.152},
     #'p8_ee_ZH_Zmumu_ecm240': {'fraction': 1, 'crossSection': 0.201868 * 0.034},
 }
+
+nJets_processList = {
+    "p8_ee_ZH_qqbb_ecm365": 4,
+    "p8_ee_ZH_6jet_ecm365": 6,
+    "p8_ee_ZH_vvbb_ecm365": 2,
+    "p8_ee_ZH_bbbb_ecm365": 4,
+    "p8_ee_ZH_vvgg_ecm365": 2,
+}
+
+
 
 #def get_files(procname):
 #    prefix = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
@@ -36,7 +48,7 @@ bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
 procDict = "FCCee_procDict_winter2023_IDEA.json"
 
 # additional/custom C++ functions, defined in header files (optional)
-includePaths = ["functions.h"]
+includePaths = ["functions.h", "utils.h"]
 
 # Define the input dir (optional)
 # inputDir    = "outputs/FCCee/higgs/mH-recoil/mumu/stage1"
@@ -79,11 +91,14 @@ def build_graph(df, dataset):
     df = df.Define("weight", "1.0")
     weightsum = df.Sum("weight")
     #df = df.Define("n_jets", "Jet.size()")
-    # Compute energy of hardest jet over energy of harderst genjet
+    # Compute energy of hardest jet over energy of hardest genjet
     df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(JetDurhamN4)")
+    df = df.Define("stable_gen_particles", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
+    df = get_jet_vars(df, "stable_gen_particles", N_durham=nJets_processList[dataset])
+    df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(jets_durham)")
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetDurhamN4)")
     df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
-    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(JetDurhamN4, GenJetDurhamN4, 0.2)")
+    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(JetDurhamN4, GenJetDurhamN4, 1.0)")
     df = df.Define("distance_between_genjets", "FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4)")
     df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4)")
     df = df.Define("min_distance_between_genjets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4))")
@@ -100,6 +115,7 @@ def build_graph(df, dataset):
     df = df.Define("matching_processing", "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, JetDurhamN4, GenJetDurhamN4)")
     df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
     df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
+    df = df.Define("num_unmatched_reco_jets", "E_of_unmatched_reco_jets.size()")
     df = df.Define("genjet_energies_matched", "std::get<2>(matching_processing)")
     df = df.Define("genjet_etas_matched", "std::get<3>(matching_processing)")
     # Bin the ratio_jet_energies_fancy according to genjet_energies (bins [0, 50, 100, 150, 200])

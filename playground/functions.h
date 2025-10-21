@@ -462,6 +462,21 @@ float max_jet_energy(Vec_rp jets) {
     return max_e;
 }
 
+Vec_rp fastjet_to_vec_rp_jet(JetClustering::FCCAnalysesJet jets) {
+    // for each item in jets.jets, convert to edm4hep::ReconstructedParticleData
+    Vec_rp out;
+    for (auto & j : jets.jets) {
+        edm4hep::ReconstructedParticleData rp;
+        rp.momentum.x = j.px();
+        rp.momentum.y = j.py();
+        rp.momentum.z = j.pz();
+        rp.energy = j.E();
+        rp.mass = j.m();
+        out.push_back(rp);
+    }
+    return out;
+}
+
 std::vector<float> sort_jet_energies(Vec_rp jets) { // return a vector<float> of the jet energies highest to lowest
     std::vector<float> energies;
     for(auto & j : jets) {
@@ -526,7 +541,8 @@ std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_
     return result;
 }
 
-Vec_rp stable_particles(Vec_mc mc_particles) {
+
+Vec_rp stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
 // Return a Vec_mc of only the stable particles (generatorStatus == 1) //
     vector<rp> result;
     for(auto & p : mc_particles) {
@@ -540,6 +556,11 @@ Vec_rp stable_particles(Vec_mc mc_particles) {
             temp.mass = p.mass;
             temp.charge = p.charge;
             temp.PDG = p.PDG;
+            if (neutrino_filter) {
+                if (abs(temp.PDG) == 12 || abs(temp.PDG) == 14 || abs(temp.PDG) == 16) {
+                    continue; // Skip neutrinos
+                }
+            }
             result.push_back(temp);
         }
     }
@@ -693,6 +714,7 @@ std::vector<float> elementwise_divide(vector<float> v1, vector<float> v2) { // r
         std::cout << "ERROR: elementwise_divide, vectors must be of same size." << std::endl;
         exit(1);
     }
+
     for(size_t i = 0; i < v1.size(); ++i) {
         if(v2[i] == 0) {
             result.push_back(0);

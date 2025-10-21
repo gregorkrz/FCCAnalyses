@@ -5,6 +5,8 @@
 import os
 from event_displays import Vec_RP, Event
 from truth_matching import get_Higgs_mass_with_truth_matching
+from jet_helper import get_jet_vars
+
 
 inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 
@@ -41,16 +43,30 @@ includePaths = ["functions.h", "utils.h"]
 # inputDir    = "outputs/FCCee/higgs/mH-recoil/mumu/stage1"
 #inputDir = "../../idea_fullsim/fast_sim/outputs"
 
+
+'''
+PLOT IDX options:
+1: the slice of the E_reco/E_true around 0.9
+2: events with unmatched reco-to-gen jets
+
+'''
+
+PLOT_IDX = 2
+
 # Optional: output directory, default is local running directory
-outputDir = "../../idea_fullsim/fast_sim/event_displays_vvbb"
+outputDir = "../../idea_fullsim/fast_sim/event_displays_vvbb_" + str(PLOT_IDX)
 #outputDir = "../../idea_fullsim/fast_sim/histograms"
 
 
-def plot_filter(E_reco_over_true, idx=1):
+
+def plot_filter(E_reco_over_true, n_unmatched, idx=1):
     # TODO: implement different plotting filter idxs
-    for E in E_reco_over_true:
-        if (E > 0.87) and (E < 0.93):
-            return True
+    if idx == 2 and n_unmatched > 0:
+        return True
+    elif idx == 1:
+        for E in E_reco_over_true:
+            if (E > 0.87) and (E < 0.93):
+                return True
     return False
 
 
@@ -64,7 +80,7 @@ def build_graph(df, dataset):
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetDurhamN4)")
     df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
     df = df.Define("fancy_matching",
-                   "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(JetDurhamN4, GenJetDurhamN4, 0.2)")
+                   "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(JetDurhamN4, GenJetDurhamN4, 1.0)")
     df = df.Define("distance_between_genjets", "FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4)")
     df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4)")
     df = df.Define("min_distance_between_genjets",
@@ -78,10 +94,18 @@ def build_graph(df, dataset):
     df = df.Define("matching_processing",
                    "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, JetDurhamN4, GenJetDurhamN4)")
     df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
+    df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
+    df = df.Define("num_unmatched_reco_jets", "E_of_unmatched_reco_jets.size()")
     l = df.AsNumpy(["ratio_jet_energies_fancy"])["ratio_jet_energies_fancy"]
+    n_unmatched = df.AsNumpy(["num_unmatched_reco_jets"])["num_unmatched_reco_jets"]
     l = list([list(item) for item in l])
+    n_unmatched = list(n_unmatched)
+    print("Number of unmatched reco jets per event: ", n_unmatched)
     df = df.Define("_serialized_evt", "FCCAnalyses::Utils::serialize_event(ReconstructedParticles);")
-    df = df.Define("_serialized_evt_gen", "FCCAnalyses::Utils::serialize_event(FCCAnalyses::ZHfunctions::stable_particles(Particle));")
+    df = df.Define("stable_gen_part_neutrinoFilter", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
+    df = df.Define("_serialized_evt_gen", "FCCAnalyses::Utils::serialize_event(stable_gen_part_neutrinoFilter);")
+    #df = df.Define("")  # JET CLUSTERING HERE
+    df = get_jet_vars(df, "ReconstructedParticles", N_durham=2)
     df = df.Define("_serialized_jets", "FCCAnalyses::Utils::serialize_event(JetDurhamN4);")
     df = df.Define("_serialized_evt_eta", "std::get<0>(_serialized_evt);")
     df = df.Define("_serialized_evt_phi", "std::get<1>(_serialized_evt);")
@@ -101,7 +125,6 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_genjets_eta", "std::get<0>(_serialized_genjets);")
     df = df.Define("_serialized_genjets_phi", "std::get<1>(_serialized_genjets);")
     df = df.Define("_serialized_genjets_pt", "std::get<2>(_serialized_genjets);")
-
     # Also get the truth particles (quarks etc)
     df = get_Higgs_mass_with_truth_matching(df)
     df = df.Define("MCparts", "FCCAnalyses::Utils::serialize_event(MC_part_asjets)")
@@ -114,12 +137,13 @@ def build_graph(df, dataset):
                           "_serialized_initial_partons_phi", "_serialized_initial_partons_pt", "_serialized_genjets_eta",
                           "_serialized_genjets_phi", "_serialized_genjets_pt", "_serialized_evt_gen_eta",
                           "_serialized_evt_gen_phi", "_serialized_evt_gen_pt", "MCparts_eta", "MCparts_phi", "MCparts_pt",
-                          "_serialized_evt_gen_PDG"])
+                          "_serialized_evt_gen_PDG", "fj_eta", "fj_phi", "fj_pt"])
     tonumpy = {key: list([list(x) for x in tonumpy[key]]) for key in tonumpy}
     for event_idx in range(len(l)):
-        if plot_filter(l[event_idx], idx=1):
+        ##assert n_unmatched[event_idx] == len([x for x in l[event_idx] if x < 0]), "n_unmatched does not match the length of unmatched jets!:" + str(n_unmatched[event_idx]) + " vs " + str(len([x for x in l[event_idx] if x < 0]))
+        if plot_filter(l[event_idx], n_unmatched[event_idx], idx=PLOT_IDX):
             if global_event_idx.get(dataset, 0) > 10:
-                return [], weightsum # Just plot 10 events...
+                return [], weightsum # Just plot 10 events... #
             #event_idx = # I want an event idx that is unique per dataset, even with multiple input root files. How do I do this?
             #print("Plotting event idx ", global_event_idx.get(dataset, 0), " from dataset ", dataset)
             eta, phi, pt = tonumpy["_serialized_evt_eta"][event_idx], tonumpy["_serialized_evt_phi"][event_idx], tonumpy["_serialized_evt_pt"][event_idx]
@@ -136,12 +160,16 @@ def build_graph(df, dataset):
             mcpart_eta, mcpart_phi, mcpart_pt = tonumpy["MCparts_eta"][event_idx], tonumpy["MCparts_phi"][event_idx], tonumpy["MCparts_pt"][event_idx]
             vec_mcparts = Vec_RP(eta=mcpart_eta, phi=mcpart_phi, pt=mcpart_pt)
             print("Length of initial partons: ", len(mcpart_eta))
+            gj_fccanalysis_eta, gj_fccanalysis_phi, gj_fccanalysis_pt = tonumpy["fj_eta"][event_idx], tonumpy["fj_phi"][event_idx], tonumpy["fj_pt"][event_idx]
+            vec_genjets_fccanalysis = Vec_RP(eta=gj_fccanalysis_eta, phi=gj_fccanalysis_phi, pt=gj_fccanalysis_pt)
+
             event = Event(vec_rp=vec_rp, additional_collections={
                 "RecoJets": vec_jets, "InitialPartons": vec_mcparts, "GenJets": vec_genjets,
-                "Status1GenParticles": vec_mc}
+                "Status1GenParticles": vec_mc, "GenJetsFCCAnalysis": vec_genjets_fccanalysis}
             )
             fig, ax = event.display()
-            ax.set_title("{}, event {}, len(in.part.)={}".format(dataset, global_event_idx.get(dataset, 0), len(mcpart_eta)))
+            ax[0].set_title("{}, event {}, len(in.part.)={}".format(dataset, global_event_idx.get(dataset, 0), len(mcpart_eta)))
+            fig.tight_layout()
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
             fig.savefig(os.path.join(outputDir, "event_{}_{}.png".format(dataset, global_event_idx.get(dataset, 0))))
