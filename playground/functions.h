@@ -474,6 +474,7 @@ Vec_rp fastjet_to_vec_rp_jet(JetClustering::FCCAnalysesJet jets) {
         rp.mass = j.m();
         out.push_back(rp);
     }
+    //rdfVerbose << "Converted " << out.size() << " jets from fastjet to vec_rp.";
     return out;
 }
 
@@ -490,8 +491,11 @@ std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_
 {
     // match reco jets to gen jets one-to-one by smallest ΔR, return vector<int> with
     // index of matched gen jet for each reco jet, -1 if no match found
+    if (reco_jets.empty()) return std::vector<int>();               // nothing to match
+    if (gen_jets.empty()) return std::vector<int>(reco_jets.size(), -1);
     std::vector<int> result(reco_jets.size(), -1);
     std::vector<char> used(gen_jets.size(), 0);
+
     struct Pair { int i, j; float dR2; };
     std::vector<Pair> pairs;
     if (debug) {

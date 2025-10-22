@@ -16,8 +16,8 @@ formats        = ['png','pdf']
 #outdir         = '../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets_greedyMatching'
 #inputDir       = '../../idea_fullsim/fast_sim/histograms/greedy_matching'
 
-outdir         = '../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets'
-inputDir       = '../../idea_fullsim/fast_sim/histograms'
+outdir         = '../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet'
+inputDir       = '../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet'
 
 plotStatUnc    = True
 
@@ -97,7 +97,7 @@ hists["h_unmatched_reco_jets"] = {
     "ytitle":   "Events",
 }
 
-hists["h_E_all_jets"] = {
+'''hists["h_E_all_jets"] = {
     "output":   "E_of_all_reco_jets",
     "logy":     False,
     "stack":    False,
@@ -108,10 +108,10 @@ hists["h_E_all_jets"] = {
     ##"ymin":     0,
     "xtitle":   "E of reco jets",
     "ytitle":   "Events",
-}
+}'''
 
 
-hists["h_E_all_genjets"] = {
+'''hists["h_E_all_genjets"] = {
     "output":   "E_of_all_gen_jets",
     "logy":     False,
     "stack":    False,
@@ -121,7 +121,7 @@ hists["h_E_all_genjets"] = {
     ##"ymin":     0,
     "xtitle":   "E of gen jets",
     "ytitle":   "Events",
-}
+}'''
 
 
 hists["h_eta"] = {
@@ -189,3 +189,29 @@ hists["h_mH_gen"] = {
     "xtitle": "Generated Higgs mass (all matched jets)",
     "ytitle": "Events",
 }
+
+
+hists["h_njets"] = {
+    "output":   "h_njets",
+    "logy":     False,
+    "stack":    False,
+    #"rebin":    100,
+    #"xmin":     120,
+    #"xmax":     140,
+    ##"ymin":     0,
+    "xtitle":   "Number of reco jets",
+    "ytitle":   "Events",
+}
+
+hists["h_ngenjets"] = {
+    "output":   "h_ngenjets",
+    "logy":     False,
+    "stack":    False,
+    #"rebin":    100,
+    #"xmin":     120,
+    #"xmax":     140,
+    ##"ymin":     0,
+    "xtitle":   "Number of gen jets",
+    "ytitle":   "Events",
+}
+

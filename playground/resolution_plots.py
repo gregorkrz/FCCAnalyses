@@ -10,8 +10,8 @@ import os
 # add --folder argument
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--folder", type=str, default="../../idea_fullsim/fast_sim/histograms")
-parser.add_argument("--output", type=str, default="comparison_multiple_jets_allJets")
+parser.add_argument("--folder", type=str, default="../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet")
+parser.add_argument("--output", type=str, default="GenJetEEKtFastJet")
 args = parser.parse_args()
 
 # python3 resolution_plots.py --folder ../../idea_fullsim/fast_sim/histograms/greedy_matching --output comparison_multiple_jets_allJets_greedyMatching
@@ -31,16 +31,13 @@ def neg_format(number):
         return point_format(number)
 
 processList = {
-    # 'p8_ee_ZZ_ecm240':{'fraction':1},
-    'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
+
     "p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
-    #"p8_ee_ZH_llbb_ecm365": {'fraction': 1},
     "p8_ee_ZH_6jet_ecm365": {'fraction': 1},
     "p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
-    # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
-    #'p8_ee_WW_mumu_ecm240': {'fraction': 1, 'crossSection': 0.25792},
-    #'p8_ee_ZZ_mumubb_ecm240': {'fraction': 1, 'crossSection': 2 * 1.35899 * 0.034 * 0.152},
-    #'p8_ee_ZH_Zmumu_ecm240': {'fraction': 1, 'crossSection': 0.201868 * 0.034},
+    "p8_ee_ZH_bbbb_ecm365": {'fraction': 1},
+    "p8_ee_ZH_vvgg_ecm365": {'fraction': 1},
+
 }
 
 ########################################################################################################

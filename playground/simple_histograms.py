@@ -1,12 +1,11 @@
 
-inputDir = "../../idea_fullsim/fast_sim/histograms"
 # for each root file in the direct inputDir, open the root histogram and read the 'h_fancy' histogram. the legend entry should be the root file name. plot it on the same mpl canvas and please normalize it to 1!
 import os
 import ROOT
 import matplotlib.pyplot as plt
 import numpy as np
 
-inputDir = "../../idea_fullsim/fast_sim/histograms"
+inputDir = "../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet"
 
 # Get all ROOT files in the directory
 root_files = [f for f in os.listdir(inputDir) if f.endswith(".root")]
@@ -48,14 +47,14 @@ plt.title("Comparison of h_fancy histograms")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/norm_E_over_true_overlaid.pdf")
+plt.savefig("../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet/norm_E_over_true_overlaid.pdf")
 #plt.show()
 
 # also plot a log y version
 plt.yscale("log")
 plt.ylim(1e-5, 1)
 plt.xlim([0.5, 1.5])
-plt.savefig("../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/norm_E_over_true_overlaid_logy.pdf")
+plt.savefig("../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet/norm_E_over_true_overlaid_logy.pdf")
 #plt.show()
 
 # There are two histograms: h_genjet_all_energies and h_genjet_matched_energies. Make a plot with the ratio (so basically efficiency) of matched over all vs energy
@@ -97,5 +96,5 @@ plt.title("Gen Jet Matching Efficiency vs Energy")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/matching_efficiency_vs_energy.pdf")
+plt.savefig("../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet/matching_efficiency_vs_energy.pdf")
 

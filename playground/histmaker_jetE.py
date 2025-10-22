@@ -4,16 +4,20 @@
 from truth_matching import get_Higgs_mass_with_truth_matching
 from jet_helper import get_jet_vars
 
-
 inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 
+
+frac = 0.01
 processList = {
     #'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
-    "p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
-    "p8_ee_ZH_6jet_ecm365": {'fraction': 1},
-    "p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
-    "p8_ee_ZH_bbbb_ecm365": {'fraction': 1},
-    "p8_ee_ZH_vvgg_ecm365": {'fraction': 1},
+
+    "p8_ee_ZH_qqbb_ecm365": {'fraction': frac},
+    "p8_ee_ZH_6jet_ecm365": {'fraction': frac},
+    "p8_ee_ZH_vvbb_ecm365": {'fraction': frac},
+    "p8_ee_ZH_bbbb_ecm365": {'fraction': frac},
+    "p8_ee_ZH_vvgg_ecm365": {'fraction': frac},
+
+
     # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
     #'p8_ee_WW_mumu_ecm240': {'fraction': 1, 'crossSection': 0.25792},
     #'p8_ee_ZZ_mumubb_ecm240': {'fraction': 1, 'crossSection': 2 * 1.35899 * 0.034 * 0.152},
@@ -55,13 +59,21 @@ includePaths = ["functions.h", "utils.h"]
 #inputDir = "../../idea_fullsim/fast_sim/outputs"
 
 # Optional: output directory, default is local running directory
-outputDir = "../../idea_fullsim/fast_sim/histograms"
+
+
+#outputDir = "../../idea_fullsim/fast_sim/histograms_view/GenJetDurhamFastJet"
+
+outputDir = "../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet"
+
+GenJetVariable = "GenJetFastJet" # set to GenJetDurhamN4 to use the delphes genjets (they are a bit funny)
+RecoJetVariable = "RecoJetFastJet"
+
 #outputDir = "../../idea_fullsim/fast_sim/histograms"
 
 # optional: ncpus, default is 4, -1 uses all cores available
 nCPUS = -1
 
-# scale the histograms with the cross-section and integrated luminosity
+# Scale the histograms with the cross-section and integrated luminosity
 doScale = False
 intLumi = 5000000  # 5 /ab
 
@@ -92,27 +104,42 @@ def build_graph(df, dataset):
     weightsum = df.Sum("weight")
     #df = df.Define("n_jets", "Jet.size()")
     # Compute energy of hardest jet over energy of hardest genjet
-    df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(JetDurhamN4)")
     df = df.Define("stable_gen_particles", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
-    df = get_jet_vars(df, "stable_gen_particles", N_durham=nJets_processList[dataset])
-    df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(jets_durham)")
-    df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetDurhamN4)")
-    df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
-    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(JetDurhamN4, GenJetDurhamN4, 1.0)")
-    df = df.Define("distance_between_genjets", "FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4)")
-    df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4)")
-    df = df.Define("min_distance_between_genjets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4))")
-    df = df.Define("min_distance_between_recojets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4))")
+
+    # For Durham:
+
+    # For eeKT:
+    df = get_jet_vars(df, "stable_gen_particles", ee_pt_cutoff=0, name="FastJet_jets")
+    df = get_jet_vars(df, "ReconstructedParticles", ee_pt_cutoff=0, name="FastJet_jets_reco")
+
+    df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets)")
+    df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco)")
+    #print("recojet fastjet:", df.AsNumpy([RecoJetVariable])[RecoJetVariable])
+    df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(RecoJetVariable))
+    df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(GenJetVariable))
+    #df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
+    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, 1.0, false)".format(RecoJetVariable, GenJetVariable))
+    df = df.Define("njets", "{}.size()".format(RecoJetVariable))
+    df = df.Define("ngenjets", "{}.size()".format(GenJetVariable))
+
+    # Will be different for each process with e+e- kt algorithm
+    hist_njets = df.Histo1D(("h_njets", "Number of reconstructed jets;N_jets;Events", 5, 0, 5), "njets")
+    hist_ngenjets = df.Histo1D(("h_ngenjets", "Number of generated jets;N_genjets;Events", 5, 0, 5), "ngenjets")
+
+    df = df.Define("distance_between_genjets", "FCCAnalyses::ZHfunctions::get_jet_distances({})".format(GenJetVariable))
+    df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances({})".format(RecoJetVariable))
+    df = df.Define("min_distance_between_genjets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances({}))".format(format(GenJetVariable)))
+    df = df.Define("min_distance_between_recojets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances({}))".format(RecoJetVariable))
     hist_dist_jets_gen = df.Histo1D(("h_dist_jets_gen", "Distance between gen jets;#DeltaR(jet_i, jet_j);Events", 100, 0, 5), "distance_between_genjets")
     hist_dist_jets_reco = df.Histo1D(("h_dist_jets_reco", "Distance between reco jets;#DeltaR(jet_i, jet_j);Events", 100, 0, 5), "distance_between_recojets")
     hist_min_dist_jets_gen = df.Histo1D(("h_min_dist_jets_gen", "Min distance between gen jets;min #DeltaR(jet_i, jet_j);Events", 100, 0, 5), "min_distance_between_genjets")
     hist_min_dist_jets_reco = df.Histo1D(("h_min_dist_jets_reco", "Min distance between reco jets;min #DeltaR(jet_i, jet_j);Events", 100, 0, 5), "min_distance_between_recojets")
-    df = df.Define("matched_genjet_E_and_all_genjet_E", "FCCAnalyses::ZHfunctions::matched_genjet_E_and_all_genjet_E(fancy_matching, GenJetDurhamN4)")
+    df = df.Define("matched_genjet_E_and_all_genjet_E", "FCCAnalyses::ZHfunctions::matched_genjet_E_and_all_genjet_E(fancy_matching, {})".format(GenJetVariable))
     df = df.Define("matched_genjet_energies", "std::get<0>(matched_genjet_E_and_all_genjet_E)")
     df = df.Define("all_genjet_energies", "std::get<1>(matched_genjet_E_and_all_genjet_E)")
     hist_genjet_all_energies = df.Histo1D(("h_genjet_all_energies", "E of all gen jets;E_gen;Events", 10, 0, 200), "all_genjet_energies")
     hist_genjet_matched_energies = df.Histo1D(("h_genjet_matched_energies", "E of matched gen jets;E_gen;Events", 10, 0, 200), "matched_genjet_energies")
-    df = df.Define("matching_processing", "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, JetDurhamN4, GenJetDurhamN4)")
+    df = df.Define("matching_processing", "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, {}, {})".format(RecoJetVariable, GenJetVariable))
     df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
     df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
     df = df.Define("num_unmatched_reco_jets", "E_of_unmatched_reco_jets.size()")
@@ -124,8 +151,8 @@ def build_graph(df, dataset):
         df = df.Define("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "FCCAnalyses::ZHfunctions::filter_number_by_bin(ratio_jet_energies_fancy, genjet_energies_matched, {}, {})".format(bins[i], bins[i + 1]))
         hh = df.Histo1D(("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "Ereco/Etrue;Ereco/Etrue;Events", 300, 0.8, 1.2), "binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]))
         histograms.append(hh)
-    df = df.Define("jet_etas", "FCCAnalyses::ZHfunctions::get_jet_eta(JetDurhamN4)")
-    df = df.Define("genjet_etas", "FCCAnalyses::ZHfunctions::get_jet_eta(GenJetDurhamN4)")
+    df = df.Define("jet_etas", "FCCAnalyses::ZHfunctions::get_jet_eta({})".format(RecoJetVariable))
+    df = df.Define("genjet_etas", "FCCAnalyses::ZHfunctions::get_jet_eta({})".format(GenJetVariable))
     h_eta = df.Histo1D(("h_eta", "eta of reco jets;eta;Events", 100, -5, 5), "jet_etas")
     h_eta_gen = df.Histo1D(("h_eta_gen", "eta of gen jets;eta;Events", 100, -5, 5), "genjet_etas")
     # For each energy and eta bin, count the number of unmatched reco jets over the number of gen jets in that bin, and save these variables in the output file too
@@ -134,8 +161,9 @@ def build_graph(df, dataset):
         hh = df.Histo1D(("binned_E_reco_over_true_eta_{}_{}".format(neg_format(bins_eta[i]), neg_format(bins_eta[i+1])), "Ereco/Etrue;Ereco/Etrue;Events", 300, 0.8, 1.2), "binned_E_reco_over_true_eta_{}_{}".format(neg_format(bins_eta[i]), neg_format(bins_eta[i+1])))
         histograms.append(hh)
     h_fancy = df.Histo1D(("h_fancy", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 300, 0.5, 1.5), "ratio_jet_energies_fancy")
-    h_Ejet = df.Histo1D(("h_E_all_jets", "E of jet;E_reco;Events", 100, 0, 300), "JetDurhamN4.energy")
-    h_Egenjet = df.Histo1D(("h_E_all_genjets", "E of genjet;E_gen;Events", 100, 0, 300), "GenJetDurhamN4.energy")
+
+    #h_Ejet = df.Histo1D(("h_E_all_jets", "E of jet;E_reco;Events", 100, 0, 300), "JetDurhamN4.energy")
+    #h_Egenjet = df.Histo1D(("h_E_all_genjets", "E of genjet;E_gen;Events", 100, 0, 300), "genjet_ene".format(GenJetVariable))
     ### Invariant mass plots ###
     #df = df.Define("invariant_mass_genjets", "FCCAnalyses::ZHfunctions::invariant_mass(GenJetDurhamN4)")
     #df = df.Define("invariant_mass_recojets", "FCCAnalyses::ZHfunctions::invariant_mass(JetDurhamN4)")
@@ -153,12 +181,12 @@ def build_graph(df, dataset):
     df = df.Define("ratio_jet_energies_fancy_E0", "ratio_jet_energies_fancy[0]")
     h_fancy1 = df.Histo1D(("h_fancy_E0", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 150, 0.4, 1.2), "ratio_jet_energies_fancy_E0")
     h_unmatched_reco_jets = df.Histo1D(("h_unmatched_reco_jets", "E of unmatched reco jets;E_reco;Events", 100, 0, 300), "E_of_unmatched_reco_jets")
-    results = [h_fancy, h_fancy1, h_unmatched_reco_jets, h_Ejet, h_Egenjet] #+ h_mass
-    for i in range(4):
-        df = df.Define("jet_E{}".format(i), "ratio_jet_energies[{}]".format(i))
-        h_E = df.Histo1D(("h_E{}".format(i), "E_reco/E_true;E_reco / E_true;Events", 50, 0.8, 1.2), "jet_E{}".format(i))
-        results.append(h_E)
-    df = get_Higgs_mass_with_truth_matching(df)
+    results = [h_fancy, h_fancy1, h_unmatched_reco_jets, hist_njets, hist_ngenjets] #+ h_mass
+    #for i in range(4):
+    #    #df = df.Define("jet_E{}".format(i), "ratio_jet_energies[{}]".format(i))
+    #    #h_E = df.Histo1D(("h_E{}".format(i), "E_reco/E_true;E_reco / E_true;Events", 50, 0.8, 1.2), "jet_E{}".format(i))
+    #    #results.append(h_E)
+    df = get_Higgs_mass_with_truth_matching(df, genjets_field=GenJetVariable, recojets_field=RecoJetVariable)
     h_mH_reco = df.Histo1D(("h_mH_reco", "Higgs mass from reco jets;M_H (reco jets);Events", 100, 0, 250), "inv_mass_reco")
     h_mH_gen = df.Histo1D(("h_mH_gen", "Higgs mass from gen jets;M_H (gen jets);Events", 100, 0, 250), "inv_mass_gen")
     results = results + [h_mH_reco, h_mH_gen]

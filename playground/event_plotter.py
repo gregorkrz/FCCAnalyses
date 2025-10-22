@@ -162,7 +162,6 @@ def build_graph(df, dataset):
             print("Length of initial partons: ", len(mcpart_eta))
             gj_fccanalysis_eta, gj_fccanalysis_phi, gj_fccanalysis_pt = tonumpy["fj_eta"][event_idx], tonumpy["fj_phi"][event_idx], tonumpy["fj_pt"][event_idx]
             vec_genjets_fccanalysis = Vec_RP(eta=gj_fccanalysis_eta, phi=gj_fccanalysis_phi, pt=gj_fccanalysis_pt)
-
             event = Event(vec_rp=vec_rp, additional_collections={
                 "RecoJets": vec_jets, "InitialPartons": vec_mcparts, "GenJets": vec_genjets,
                 "Status1GenParticles": vec_mc, "GenJetsFCCAnalysis": vec_genjets_fccanalysis}
