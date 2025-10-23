@@ -1,5 +1,9 @@
 
 
+#def get_jet_vars_calo(df, vec_rp_name, N_durham=-1, ee_pt_cutoff=-1, AK_radius=-1, name="FastJet_jets_calo"):
+#    # CalorimeterHist
+
+
 
 def get_jet_vars(df, vec_rp_name, N_durham=-1, ee_pt_cutoff=-1, AK_radius=-1, name="FastJet_jets"):
     '''

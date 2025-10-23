@@ -263,3 +263,11 @@ hists["h_E_all_gen_jets"] = {
     "xtitle": "gen jet E",
     "ytitle": "Events"
 }
+
+hists["h_calo_hit_energy"] = {
+    "output": "h_calo_hit_energy",
+    "logy": False,
+    "stack": False,
+    "xtitle": "Calo hit energy",
+    "ytitle": "Hits"
+}

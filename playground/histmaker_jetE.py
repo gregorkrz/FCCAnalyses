@@ -103,6 +103,12 @@ def build_graph(df, dataset):
     #results = []
     df = df.Define("weight", "1.0")
     weightsum = df.Sum("weight")
+    df = df.Define("calo_hit_energy", "CalorimeterHits.energy")
+    hist_calo_hist_E = df.Histo1D(("h_calo_hit_energy", "Calo hit energy;E_calo_hit;Events", 100, 0, 3),
+                                  "calo_hit_energy")
+    che = df.AsNumpy(["calo_hit_energy"])["calo_hit_energy"]
+    print("Calo hit energy array size:", len(che))
+    print("Calo hit energies:", che)
     #df = df.Define("n_jets", "Jet.size()")
     # Compute energy of hardest jet over energy of hardest genjet
     df = df.Define("stable_gen_particles", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
@@ -155,6 +161,7 @@ def build_graph(df, dataset):
     df = df.Define("genjet_energies_matched", "std::get<2>(matching_processing)")
     df = df.Define("genjet_etas_matched", "std::get<3>(matching_processing)")
     df = df.Define("num_matched_reco_jets", "genjet_energies_matched.size()")
+
     # Bin the ratio_jet_energies_fancy according to genjet_energies (bins [0, 50, 100, 150, 200])
     histograms = [hist_genjet_all_energies, hist_genjet_matched_energies, hist_dist_jets_gen, hist_dist_jets_reco, hist_min_dist_jets_reco, hist_min_dist_jets_gen]
     for i in range(len(bins) - 1):
@@ -208,6 +215,6 @@ def build_graph(df, dataset):
     h_mH_gen = df.Histo1D(("h_mH_gen", "Higgs mass from gen jets;M_H (gen jets);Events", 100, 0, 250), "inv_mass_gen")
     h_mH_gen_all = df.Histo1D(("h_mH_gen_all", "Higgs mass from all gen jets;M_H (all gen jets);Events", 100, 0, 250), "inv_mass_gen_all")
     h_mH_reco_all = df.Histo1D(("h_mH_reco_all", "Higgs mass from all reco jets;M_H (all reco jets);Events", 100, 0, 250), "inv_mass_reco_all")
-    results = results + [h_mH_reco, h_mH_gen, h_mH_gen_all, h_mH_reco_all, h_mH_all_stable_part, h_Ejet, h_Egenjet]
+    results = results + [h_mH_reco, h_mH_gen, h_mH_gen_all, h_mH_reco_all, h_mH_all_stable_part, h_Ejet, h_Egenjet, hist_calo_hist_E]
     return results + histograms + [h_eta, h_eta_gen], weightsum
 
