@@ -90,6 +90,18 @@ string int_array_to_string(vector<int> arr) {
     result += "]";
     return result;
 }
+
+string float_array_to_string(vector<float> arr) {
+    string result = "[";
+    for (size_t i = 0; i < arr.size(); ++i) {
+        result += to_string(arr[i]);
+        if (i < arr.size() - 1) result += ", ";
+    }
+    result += "]";
+    return result;
+}
+
+
 std::vector<int> get_list_of_direct_particles_from_decay(int i,
                                              const ROOT::VecOps::RVec<edm4hep::MCParticleData>& in,
                                              const ROOT::VecOps::RVec<int>& ind) {
@@ -462,10 +474,22 @@ float max_jet_energy(Vec_rp jets) {
     return max_e;
 }
 
-Vec_rp fastjet_to_vec_rp_jet(JetClustering::FCCAnalysesJet jets) {
-    // for each item in jets.jets, convert to edm4hep::ReconstructedParticleData
+Vec_rp fastjet_to_vec_rp_jet(JetClustering::FCCAnalysesJet jets, int first_k) {
+    // For each item in jets.jets, convert to edm4hep::ReconstructedParticleData
     Vec_rp out;
-    for (auto & j : jets.jets) {
+    // Keep the first k pt jets only...
+    vector<size_t> indices(jets.jets.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::sort(indices.begin(), indices.end(),
+              [&jets](size_t a, size_t b) {
+                  float pt_a = std::sqrt(jets.jets[a].px()*jets.jets[a].px() + jets.jets[a].py()*jets.jets[a].py());
+                  float pt_b = std::sqrt(jets.jets[b].px()*jets.jets[b].px() + jets.jets[b].py()*jets.jets[b].py());
+                  return pt_a > pt_b;
+              });
+    size_t n_jets_to_keep = std::min(static_cast<size_t>(first_k), jets.jets.size());
+    for (size_t i = 0; i < n_jets_to_keep; ++i) {
+        size_t idx = indices[i];
+        auto & j = jets.jets[idx];
         edm4hep::ReconstructedParticleData rp;
         rp.momentum.x = j.px();
         rp.momentum.y = j.py();
@@ -474,7 +498,6 @@ Vec_rp fastjet_to_vec_rp_jet(JetClustering::FCCAnalysesJet jets) {
         rp.mass = j.m();
         out.push_back(rp);
     }
-    //rdfVerbose << "Converted " << out.size() << " jets from fastjet to vec_rp.";
     return out;
 }
 

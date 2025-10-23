@@ -1,8 +1,6 @@
 # export FOLDER_NAME=GenJetDurhamFastJet_NoISR
 # export INPUT_DIR=/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/22102025/ISR_ecm240 fccanalysis run histmaker_jetE.py
-
 # source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
-
 
 # list of processes (mandatory)
 from truth_matching import get_Higgs_mass_with_truth_matching
@@ -122,9 +120,9 @@ def build_graph(df, dataset):
     # For eeKT:
     #df = get_jet_vars(df, "stable_gen_particles", ee_pt_cutoff=0, name="FastJet_jets")
     #df = get_jet_vars(df, "ReconstructedParticles", ee_pt_cutoff=0, name="FastJet_jets_reco")
-
-    df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets)")
-    df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco)")
+    first_k = nJets_processList[dataset]
+    df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets, {})".format(first_k))
+    df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(first_k))
     #print("recojet fastjet:", df.AsNumpy([RecoJetVariable])[RecoJetVariable])
     df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(RecoJetVariable))
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(GenJetVariable))
