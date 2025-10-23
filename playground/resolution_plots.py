@@ -6,17 +6,21 @@ from copy import copy
 import argparse
 import os
 
+assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
+assert "FOLDER_NAME" in os.environ
+
 ###########################################################################################
 # add --folder argument
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--folder", type=str, default="../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet")
-parser.add_argument("--output", type=str, default="GenJetEEKtFastJet")
+parser.add_argument("--folder", type=str, default="../../idea_fullsim/fast_sim/Histograms_ECM240/{}".format(os.environ["FOLDER_NAME"]))
+parser.add_argument("--output", type=str, default=os.environ["FOLDER_NAME"])
 args = parser.parse_args()
 
+###########################################################################################
 # python3 resolution_plots.py --folder ../../idea_fullsim/fast_sim/histograms/greedy_matching --output comparison_multiple_jets_allJets_greedyMatching
 
-dir = "../../idea_fullsim/fast_sim/histograms_view/{}".format(args.output)
+dir = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}".format(args.output)
 # make dir if it doesn't exist
 os.makedirs(dir, exist_ok=True)
 print("Saving to directory:", dir)
@@ -31,17 +35,16 @@ def neg_format(number):
         return point_format(number)
 
 processList = {
-
-    "p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
-    "p8_ee_ZH_6jet_ecm365": {'fraction': 1},
-    "p8_ee_ZH_vvbb_ecm365": {'fraction': 1},
-    "p8_ee_ZH_bbbb_ecm365": {'fraction': 1},
-    "p8_ee_ZH_vvgg_ecm365": {'fraction': 1},
-
+    "p8_ee_ZH_qqbb_ecm240": {'fraction': 1},
+    "p8_ee_ZH_6jet_ecm240": {'fraction': 1},
+    "p8_ee_ZH_vvbb_ecm240": {'fraction': 1},
+    "p8_ee_ZH_bbbb_ecm240": {'fraction': 1},
+    "p8_ee_ZH_vvgg_ecm240": {'fraction': 1},
 }
 
 ########################################################################################################
-binsE = [0, 50, 75, 100, 125,  150, 175]
+
+binsE = [0, 50, 75, 100]
 bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
 
 def get_result_for_process(procname, bins=binsE, suffix=""):
@@ -104,6 +107,8 @@ def get_result_for_process(procname, bins=binsE, suffix=""):
         return y, edges
     bin_mid_points = []
     sigmaEoverE = []
+    responses = []
+    bins_to_histograms = {}
     for i in range(len(bins) - 1):
         hist_name = f"binned_E_reco_over_true_{suffix}{neg_format(bins[i])}_{neg_format(bins[i+1])}"
         y, edges = root_file_get_hist_and_edges(f, hist_name)
@@ -120,51 +125,78 @@ def get_result_for_process(procname, bins=binsE, suffix=""):
         else:
             y_normalized = y
         ax_hist.step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV")
+        bins_to_histograms[i] = [y_normalized, edges]
         yc = copy(y)
         std68, low, high, MPV = get_std68(y, edges, percentage=0.683, epsilon=0.001)
         bin_mid = 0.5 * (bins[i] + bins[i + 1])
         bin_mid_points.append(bin_mid)
         sigmaEoverE.append(std68 / MPV)
-
+        responses.append(MPV)
         print(f"Bin [{bins[i]}, {bins[i+1]}]: std68 = {std68:.4f}, low = {low:.4f}, high = {high:.4f}, MPV={MPV},N={np.sum(yc)}")
     ax_hist.legend()
     ax_hist.set_xlabel(r'$E_{reco} / E_{true}$')
     ax_hist.set_ylabel('Entries')
-    return bin_mid_points, sigmaEoverE, fig_hist
+    return bin_mid_points, sigmaEoverE, fig_hist, responses, bins_to_histograms
 
-fig, ax = plt.subplots(figsize=(8,6))
+
+fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+bin_to_histograms_storage = {}
 for process in sorted(list(processList.keys())):
-    bin_mid_points, sigmaEoverE, fig_histograms = get_result_for_process(process)
+    bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms = get_result_for_process(process)
+    bin_to_histograms_storage[process] = bin_to_histograms
     fig_histograms.tight_layout()
     fig_histograms.savefig(
-        "../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets/bins_{}.pdf".format(process)
+        "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/bins_{}.pdf".format(os.environ["FOLDER_NAME"], process)
     )
-
-    ax.plot(bin_mid_points, sigmaEoverE, ".--", label=process)
-ax.legend()
-ax.set_xlabel('Jet True Energy [GeV]')
-ax.set_ylabel(r'$\sigma_E / E$')
-ax.set_title('Jet Energy Resolution vs Jet Energy')
-ax.grid(True, alpha=0.3)
+    ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
+    ax[1].plot(bin_mid_points, resp, ".--", label=process)
+ax[0].legend()
+ax[0].set_xlabel('Jet True Energy [GeV]')
+ax[0].set_ylabel(r'$\sigma_E / E$')
+ax[0].set_title('Jet Energy Resolution vs Jet Energy')
+ax[0].grid(True, alpha=0.3)
 fig.tight_layout()
-fig.savefig("../../idea_fullsim/fast_sim/histograms_view/{}/jet_energy_resolution_data_points.pdf".format(args.output))
+fig.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/jet_energy_resolution_data_points.pdf".format(args.output))
 
-fig, ax = plt.subplots(figsize=(8, 6))
+
+### Plot each bin on a separate plot, but different processes on same plot
+fig, ax = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
+for i in range(len(binsE) - 1):
+    for process in sorted(list(processList.keys())):
+        y_normalized, edges = bin_to_histograms_storage[process][i]
+        # plot on ax[i]
+        bin_widths = np.diff(edges)
+
+        ax[i].step(edges[:-1], y_normalized, where="post", label=process)
+    ax[i].set_title(f'Bin [{binsE[i]}, {binsE[i + 1]}] GeV')
+    ax[i].set_ylabel('Entries')
+    ax[i].legend()
+    ax[i].set_xlim([0.95, 1.05])
+ax[-1].set_xlabel(r'$E_{reco} / E_{true}$')
+
+fig.tight_layout()
+fig.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/jet_energy_bins_comparison.pdf".format(args.output))
+
+fig, ax = plt.subplots(2, 1, figsize=(8, 6))
 for process in sorted(list(processList.keys())):
-    bin_mid_points, sigmaEoverE, fig_histograms = get_result_for_process(process, bins=bins_eta, suffix="eta_")
+    bin_mid_points, sigmaEoverE, fig_histograms, resp, _ = get_result_for_process(process, bins=bins_eta, suffix="eta_")
     fig_histograms.tight_layout()
     fig_histograms.savefig(
-        "../../idea_fullsim/fast_sim/histograms_view/{}/bins_eta_{}.pdf".format(args.output, process)
+        "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/bins_eta_{}.pdf".format(args.output, process)
     )
-    ax.plot(bin_mid_points, sigmaEoverE, ".--", label=process)
+    ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
+    ax[1].plot(bin_mid_points, resp, ".--", label=process)
 
-ax.legend()
-ax.set_xlabel('Jet Eta [GeV]')
-ax.set_ylabel(r'$\sigma_E / E$')
-ax.set_title('Jet Energy Resolution vs Jet Energy')
-ax.grid(True, alpha=0.3)
+
+ax[0].legend()
+ax[0].set_xlabel('Jet Eta [GeV]')
+ax[0].set_ylabel(r'$\sigma_E / E$')
+ax[0].set_title('Jet Energy Resolution vs Jet Energy')
+ax[0].grid(True, alpha=0.3)
+ax[1].grid(True, alpha=0.3)
+ax[1].set_title("Energy Response vs Energy")
+ax[1].set_xlabel('Jet Eta [GeV]')
+ax[1].set_ylabel("$\sigma_E / E$")
 fig.tight_layout()
-
-fig.savefig("../../idea_fullsim/fast_sim/histograms_view/{}/jet_Eta_resolution_data_points.pdf".format(args.output))
-
+fig.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/jet_Eta_resolution_data_points.pdf".format(args.output))
 

@@ -1,17 +1,21 @@
 
-# for each root file in the direct inputDir, open the root histogram and read the 'h_fancy' histogram. the legend entry should be the root file name. plot it on the same mpl canvas and please normalize it to 1!
+# For each root file in the direct inputDir, open the root histogram and read the 'h_fancy' histogram. the legend entry should be the root file name. plot it on the same mpl canvas and please normalize it to 1!
 import os
 import ROOT
 import matplotlib.pyplot as plt
 import numpy as np
 
-inputDir = "../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet"
+assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
+assert "FOLDER_NAME" in os.environ
+
+inputDir = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}".format(os.environ["FOLDER_NAME"])
 
 # Get all ROOT files in the directory
 root_files = [f for f in os.listdir(inputDir) if f.endswith(".root")]
 # remove "p8_ee_ZH_llbb_ecm365".root if it exists
 if "p8_ee_ZH_llbb_ecm365.root" in root_files:
-    root_files.remove("p8_ee_ZH_llbb_ecm365.root")
+    root_files.remove("p8_ee_ZH_llbb_ecm365.root") # quick fix we dont need that file for now
+
 plt.figure(figsize=(8, 6))
 for fname in root_files:
     file_path = os.path.join(inputDir, fname)
@@ -47,14 +51,14 @@ plt.title("Comparison of h_fancy histograms")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet/norm_E_over_true_overlaid.pdf")
+plt.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/norm_E_over_true_overlaid.pdf".format(os.environ["FOLDER_NAME"]))
 #plt.show()
 
 # also plot a log y version
 plt.yscale("log")
 plt.ylim(1e-5, 1)
 plt.xlim([0.5, 1.5])
-plt.savefig("../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet/norm_E_over_true_overlaid_logy.pdf")
+plt.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/norm_E_over_true_overlaid_logy.pdf".format(os.environ["FOLDER_NAME"]))
 #plt.show()
 
 # There are two histograms: h_genjet_all_energies and h_genjet_matched_energies. Make a plot with the ratio (so basically efficiency) of matched over all vs energy
@@ -76,11 +80,10 @@ for fname in root_files:
     n_bins = hist_all.GetNbinsX()
     x_vals = np.array([hist_all.GetBinCenter(i) for i in range(1, n_bins + 1)])
     # remove the xvals larger than 175
-    filt = x_vals <= 175
+    filt = x_vals <= 100
     x_vals = x_vals[filt]
     y_all = np.array([hist_all.GetBinContent(i) for i in range(1, n_bins + 1)])[filt]
     y_matched = np.array([hist_matched.GetBinContent(i) for i in range(1, n_bins + 1)])[filt]
-
     # Calculate ratio
     with np.errstate(divide='ignore', invalid='ignore'):
         ratio = np.true_divide(y_matched, y_all)
@@ -88,13 +91,14 @@ for fname in root_files:
     # Plot
     label = os.path.splitext(fname)[0]
     plt.plot(x_vals, ratio, label=label)
-
     f.Close()
+
 plt.xlabel("Gen Jet Energy [GeV]")
 plt.ylabel("Matching Efficiency (Matched / All)")
+plt.ylim([0.95, 1.02])
 plt.title("Gen Jet Matching Efficiency vs Energy")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet/matching_efficiency_vs_energy.pdf")
+plt.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/matching_efficiency_vs_energy.pdf".format(os.environ["FOLDER_NAME"]))
 

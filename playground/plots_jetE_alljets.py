@@ -1,9 +1,15 @@
 #fccsw tutorial
 # fccanalysis plots plots_jetE_alljets.py
 
-import ROOT
 
-# global parameters
+import ROOT
+import os
+
+
+assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
+assert "FOLDER_NAME" in os.environ
+
+# Global parameters
 intLumi        = 1.
 intLumiLabel   = ""
 #ana_tex        = 'All matched jets using deltaR matching'
@@ -16,8 +22,8 @@ formats        = ['png','pdf']
 #outdir         = '../../idea_fullsim/fast_sim/histograms_view/comparison_multiple_jets_allJets_greedyMatching'
 #inputDir       = '../../idea_fullsim/fast_sim/histograms/greedy_matching'
 
-outdir         = '../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet'
-inputDir       = '../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet'
+outdir         = '../../idea_fullsim/fast_sim/Histograms_ECM240/{}'.format(os.environ["FOLDER_NAME"])
+inputDir       = '../../idea_fullsim/fast_sim/Histograms_ECM240/{}'.format(os.environ["FOLDER_NAME"])
 
 plotStatUnc    = True
 
@@ -35,14 +41,13 @@ colors["ZHvvgg"] = ROOT.kGray+1
 #procs['backgrounds'] =  {'WW':['p8_ee_WW_ecm240'], 'ZZ':['p8_ee_ZZ_ecm240']}
 
 procs = {}
+
 procs["signal"] = {
-    #"WW": ["p8_ee_WW_ecm365_fullhad"],
-    "ZH": ["p8_ee_ZH_qqbb_ecm365"],
-    #"ZHll": ["p8_ee_ZH_llbb_ecm365"],
-    "ZH6jet": ["p8_ee_ZH_6jet_ecm365"],
-    "ZHvv": ["p8_ee_ZH_vvbb_ecm365"],
-    "ZHbbbb": ["p8_ee_ZH_bbbb_ecm365"],
-    "ZHvvgg": ["p8_ee_ZH_vvgg_ecm365"],
+    "ZH": ["p8_ee_ZH_qqbb_ecm240"],
+    "ZH6jet": ["p8_ee_ZH_6jet_ecm240"],
+    "ZHvv": ["p8_ee_ZH_vvbb_ecm240"],
+    "ZHbbbb": ["p8_ee_ZH_bbbb_ecm240"],
+    "ZHvvgg": ["p8_ee_ZH_vvgg_ecm240"],
 }
 
 procs["backgrounds"] = {}
@@ -178,6 +183,7 @@ hists["h_mH_reco"] = {
     "output": "h_mH_reco",
     "logy": False,
     "stack": False,
+    "ymax": 150000,
     "xtitle": "Reconstructed Higgs mass (all matched jets)",
     "ytitle": "Events",
 }
@@ -186,7 +192,8 @@ hists["h_mH_gen"] = {
     "output": "h_mH_gen",
     "logy": False,
     "stack": False,
-    "xtitle": "Generated Higgs mass (all matched jets)",
+    "ymax": 150000,
+    "xtitle": " Higgs mass from gen particles (all matched jets)",
     "ytitle": "Events",
 }
 
@@ -215,3 +222,44 @@ hists["h_ngenjets"] = {
     "ytitle":   "Events",
 }
 
+hists["h_mH_gen_all"] = {
+    "output": "h_mH_gen_all",
+    "logy": False,
+    "stack": False,
+    "xtitle": " Higgs mass from gen particles (all gen jets)",
+    "ytitle": "Events",
+
+}
+
+hists["h_mH_reco_all"] = {
+    "output": "h_mH_reco_all",
+    "logy": False,
+    "stack": False,
+    "xtitle": "Reconstructed Higgs mass (all reco jets)",
+    "ytitle": "Events",
+}
+
+hists["h_mH_all_stable_part"] = {
+    "output": "h_mH_all_stable_part",
+    "logy": False,
+    "stack": False,
+    "xtitle": "invariant mass of all particles",
+    "ytitle": "Events"
+}
+
+hists["h_E_all_reco_jets"] = {
+    "output": "h_E_all_reco_jets",
+    "logy": False,
+    "stack": False,
+    "xtitle": "reco jet E",
+    "ytitle": "Events"
+
+}
+
+hists["h_E_all_gen_jets"] = {
+    "output": "h_E_all_genjets",
+    "logy": False,
+    "stack": False,
+    "xtitle": "gen jet E",
+    "ytitle": "Events"
+}

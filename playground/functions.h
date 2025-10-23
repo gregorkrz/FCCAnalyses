@@ -571,14 +571,17 @@ Vec_rp stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
     return convert(result);
 }
 
-float invariant_mass(Vec_rp jets) { // vec_rp could be either reco jets, gen jets, filtered jets, or just all reco particles
+float invariant_mass(Vec_rp jets, bool debug = false) { // vec_rp could be either reco jets, gen jets, filtered jets, or just all reco particles
     TLorentzVector total_lv;
     total_lv.SetXYZM(0,0,0,0);
+    //rdfVerbose << "invariant mass computation ";
     for(auto & j : jets) {
         TLorentzVector j_lv;
         j_lv.SetXYZM(j.momentum.x, j.momentum.y, j.momentum.z, j.mass);
         total_lv += j_lv;
+
     }
+    rdfVerbose << "Invariant mass comp completed" << endl;
     return total_lv.M();
 }
 

@@ -44,4 +44,17 @@ namespace FCCAnalyses { namespace Utils {
         }
         return out;
     }
+
+    int inspect_vecrp_object(Vec_rp object) {
+        // Fill the vector with the mass of each item in the object
+        rdfVerbose << "Inspecting the object" << endl;
+
+        for(auto & j : object) {
+            rdfVerbose <<  "object M = " << j.mass << endl;
+        }
+        return 0;
+    }
+
 }}
+
+
