@@ -9,11 +9,12 @@ import os
 
 assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
 assert "FOLDER_NAME" in os.environ
-
+assert "HISTOGRAMS_FOLDER_NAME" in os.environ # Default: Histograms_ECM240
 
 inputDir = os.environ.get("INPUT_DIR")
 print("Using input dir:", inputDir)
 print("Using folder name:", os.environ.get("FOLDER_NAME"))
+print("Using histograms folder name: ", os.environ["HISTOGRAMS_FOLDER_NAME"])
 
 frac = 1
 
@@ -26,6 +27,7 @@ processList = {
     "p8_ee_ZH_bbbb_ecm240": {'fraction': frac},
     "p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
     #############################################################
+
     # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
     #'p8_ee_WW_mumu_ecm240': {'fraction': 1, 'crossSection': 0.25792},
     #'p8_ee_ZZ_mumubb_ecm240': {'fraction': 1, 'crossSection': 2 * 1.35899 * 0.034 * 0.152},
@@ -68,7 +70,7 @@ includePaths = ["functions.h", "utils.h"]
 
 ########### Different output dirs ######################
 
-outputDir = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}".format(os.environ.get("FOLDER_NAME"))
+outputDir = "../../idea_fullsim/fast_sim/{}/{}".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ.get("FOLDER_NAME"))
 
 #outputDir = "../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet"
 #######################################################
@@ -213,8 +215,10 @@ def build_graph(df, dataset):
     h_mH_all_stable_part = df.Histo1D(("h_mH_all_stable_part", "Invariant mass of all particles; Minv; Events", 100, 0, 250), "inv_mass_all_gen_particles")
     h_mH_reco = df.Histo1D(("h_mH_reco", "Higgs mass from reco jets;M_H (reco jets);Events", 100, 0, 250), "inv_mass_reco")
     h_mH_gen = df.Histo1D(("h_mH_gen", "Higgs mass from gen jets;M_H (gen jets);Events", 100, 0, 250), "inv_mass_gen")
+    h_mH_reco_core = df.Histo1D(("h_mH_reco_core", "Higgs mass from reco jets;M_H (reco jets);Events", 100, 75, 150), "inv_mass_reco")
+    h_mH_gen_core = df.Histo1D(("h_mH_gen_core", "Higgs mass from gen jets;M_H (gen jets);Events", 100, 75, 150), "inv_mass_gen")
     h_mH_gen_all = df.Histo1D(("h_mH_gen_all", "Higgs mass from all gen jets;M_H (all gen jets);Events", 100, 0, 250), "inv_mass_gen_all")
     h_mH_reco_all = df.Histo1D(("h_mH_reco_all", "Higgs mass from all reco jets;M_H (all reco jets);Events", 100, 0, 250), "inv_mass_reco_all")
-    results = results + [h_mH_reco, h_mH_gen, h_mH_gen_all, h_mH_reco_all, h_mH_all_stable_part, h_Ejet, h_Egenjet, hist_calo_hist_E]
+    results = results + [h_mH_reco, h_mH_gen, h_mH_gen_all, h_mH_reco_all, h_mH_all_stable_part, h_Ejet, h_Egenjet,
+                         hist_calo_hist_E, h_mH_reco_core, h_mH_gen_core]
     return results + histograms + [h_eta, h_eta_gen], weightsum
-

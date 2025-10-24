@@ -34,7 +34,8 @@ procs = {"signal": {}, "backgrounds": {}}
 legend = {}
 
 i = 0
-for file in os.listdir(inputDir):
+
+for file in sorted(os.listdir(inputDir)):
     if file.endswith(".root"):
         proc_name = file.replace(".root", "")
         procs["signal"][proc_name] = [proc_name]

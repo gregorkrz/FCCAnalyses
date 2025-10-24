@@ -6,22 +6,22 @@ from copy import copy
 import argparse
 import os
 
-assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
 assert "FOLDER_NAME" in os.environ
-
+histograms_folder = os.environ.get("HISTOGRAMS_FOLDER_NAME", "Histograms_ECM240")
 ###########################################################################################
 # add --folder argument
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--folder", type=str, default="../../idea_fullsim/fast_sim/Histograms_ECM240/{}".format(os.environ["FOLDER_NAME"]))
+parser.add_argument("--folder", type=str, default="../../idea_fullsim/fast_sim/{}/{}".format(histograms_folder, os.environ["FOLDER_NAME"]))
 parser.add_argument("--output", type=str, default=os.environ["FOLDER_NAME"])
 args = parser.parse_args()
 
 ###########################################################################################
 # python3 resolution_plots.py --folder ../../idea_fullsim/fast_sim/histograms/greedy_matching --output comparison_multiple_jets_allJets_greedyMatching
 
-dir = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}".format(args.output)
-# make dir if it doesn't exist
+dir = "../../idea_fullsim/fast_sim/{}/{}".format(histograms_folder, args.output)
+# Make dir if it doesn't exist
+
 os.makedirs(dir, exist_ok=True)
 print("Saving to directory:", dir)
 
@@ -42,12 +42,20 @@ processList = {
     "p8_ee_ZH_vvgg_ecm240": {'fraction': 1},
 }
 
+processList = {}
+
+for file in os.listdir(args.folder):
+    if file.endswith(".root"):
+        proc_name = file.replace(".root", "")
+        processList[proc_name] = {'fraction': 1}
+
 ########################################################################################################
 
 binsE = [0, 50, 75, 100]
 bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
 
-def get_result_for_process(procname, bins=binsE, suffix=""):
+def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"):
+    # Sigma methods: std68, RMS, interquantile_range
     f = ROOT.TFile.Open(os.path.join(args.folder, "{}.root".format(procname)))
     fig_hist, ax_hist = plt.subplots(figsize=(5, 5))
     def get_std68(theHist, bin_edges, percentage=0.683, epsilon=0.001):
@@ -127,7 +135,31 @@ def get_result_for_process(procname, bins=binsE, suffix=""):
         ax_hist.step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV")
         bins_to_histograms[i] = [y_normalized, edges]
         yc = copy(y)
-        std68, low, high, MPV = get_std68(y, edges, percentage=0.683, epsilon=0.001)
+        if sigma_method == "std68":
+            std68, low, high, MPV = get_std68(y, edges, percentage=0.683, epsilon=0.001)
+        elif sigma_method == "RMS":
+            MPV = 0.5 * (edges[np.argmax(y)] + edges[np.argmax(y) + 1])
+            mean = np.sum([(0.5 * (edges[i] + edges[i + 1])) * yc[i] * (edges[i + 1] - edges[i]) for i in range(len(yc))]) / np.sum([yc[i] * (edges[i + 1] - edges[i]) for i in range(len(yc))])
+            RMS = np.sqrt(np.sum([((0.5 * (edges[i] + edges[i + 1])) - mean) ** 2 * yc[i] * (edges[i + 1] - edges[i]) for i in range(len(yc))]) / np.sum([yc[i] * (edges[i + 1] - edges[i]) for i in range(len(yc))]))
+            std68  = RMS
+            low = mean - std68
+            high = mean + std68
+        elif sigma_method == "interquantile_range":
+            MPV = 0.5 * (edges[np.argmax(y)] + edges[np.argmax(y) + 1])
+            # compute the cumulative distribution
+            s =  np.sum(yc * np.diff(edges))
+            if s != 0:
+                yc = yc / s  # normalize the histogram to 1
+            cumulative = np.cumsum(yc * np.diff(edges))
+            # find the 15.85% and 84.15% quantiles
+            low_idx = np.searchsorted(cumulative, 0.1585)
+            high_idx = np.searchsorted(cumulative, 0.8415)
+            low = edges[low_idx]
+            high = edges[high_idx]
+            std68 = 0.5 * (high - low)
+        else:
+            raise ValueError(f"Unknown sigma method: {sigma_method}")
+
         bin_mid = 0.5 * (bins[i] + bins[i + 1])
         bin_mid_points.append(bin_mid)
         sigmaEoverE.append(std68 / MPV)
@@ -139,25 +171,29 @@ def get_result_for_process(procname, bins=binsE, suffix=""):
     return bin_mid_points, sigmaEoverE, fig_hist, responses, bins_to_histograms
 
 
-fig, ax = plt.subplots(2, 1, figsize=(8, 6))
 bin_to_histograms_storage = {}
-for process in sorted(list(processList.keys())):
-    bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms = get_result_for_process(process)
-    bin_to_histograms_storage[process] = bin_to_histograms
-    fig_histograms.tight_layout()
-    fig_histograms.savefig(
-        "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/bins_{}.pdf".format(os.environ["FOLDER_NAME"], process)
-    )
-    ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
-    ax[1].plot(bin_mid_points, resp, ".--", label=process)
-ax[0].legend()
-ax[0].set_xlabel('Jet True Energy [GeV]')
-ax[0].set_ylabel(r'$\sigma_E / E$')
-ax[0].set_title('Jet Energy Resolution vs Jet Energy')
-ax[0].grid(True, alpha=0.3)
-fig.tight_layout()
-fig.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/jet_energy_resolution_data_points.pdf".format(args.output))
 
+for method in ["std68", "RMS", "interquantile_range"]:
+    print("-----------------------------------------------------------")
+    print("Using sigma method:", method)
+    fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+    for process in sorted(list(processList.keys())):
+        bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms = get_result_for_process(process, sigma_method=method)
+        if method == "std68":
+            bin_to_histograms_storage[process] = bin_to_histograms
+            fig_histograms.tight_layout()
+            fig_histograms.savefig(
+                "../../idea_fullsim/fast_sim/{}/{}/bins_{}.pdf".format(histograms_folder, os.environ["FOLDER_NAME"], process)
+            )
+        ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
+        ax[1].plot(bin_mid_points, resp, ".--", label=process)
+    ax[0].legend()
+    ax[0].set_xlabel('Jet True Energy [GeV]')
+    ax[0].set_ylabel(r'$\sigma_E / E$')
+    ax[0].set_title('Jet Energy Resolution vs Jet Energy')
+    ax[0].grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_{}.pdf".format(histograms_folder, args.output, method))
 
 ### Plot each bin on a separate plot, but different processes on same plot
 fig, ax = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
@@ -166,7 +202,6 @@ for i in range(len(binsE) - 1):
         y_normalized, edges = bin_to_histograms_storage[process][i]
         # plot on ax[i]
         bin_widths = np.diff(edges)
-
         ax[i].step(edges[:-1], y_normalized, where="post", label=process)
     ax[i].set_title(f'Bin [{binsE[i]}, {binsE[i + 1]}] GeV')
     ax[i].set_ylabel('Entries')
@@ -175,14 +210,15 @@ for i in range(len(binsE) - 1):
 ax[-1].set_xlabel(r'$E_{reco} / E_{true}$')
 
 fig.tight_layout()
-fig.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/jet_energy_bins_comparison.pdf".format(args.output))
+fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison.pdf".format(histograms_folder, args.output))
+
 
 fig, ax = plt.subplots(2, 1, figsize=(8, 6))
 for process in sorted(list(processList.keys())):
     bin_mid_points, sigmaEoverE, fig_histograms, resp, _ = get_result_for_process(process, bins=bins_eta, suffix="eta_")
     fig_histograms.tight_layout()
     fig_histograms.savefig(
-        "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/bins_eta_{}.pdf".format(args.output, process)
+        "../../idea_fullsim/fast_sim/{}/{}/bins_eta_{}.pdf".format(histograms_folder, args.output, process)
     )
     ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
     ax[1].plot(bin_mid_points, resp, ".--", label=process)
@@ -198,5 +234,5 @@ ax[1].set_title("Energy Response vs Energy")
 ax[1].set_xlabel('Jet Eta [GeV]')
 ax[1].set_ylabel("$\sigma_E / E$")
 fig.tight_layout()
-fig.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/jet_Eta_resolution_data_points.pdf".format(args.output))
+fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_Eta_resolution_data_points.pdf".format(histograms_folder, args.output))
 

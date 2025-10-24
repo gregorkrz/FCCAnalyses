@@ -271,3 +271,22 @@ hists["h_calo_hit_energy"] = {
     "xtitle": "Calo hit energy",
     "ytitle": "Hits"
 }
+
+hists["h_mH_reco_core"] = {
+    "output": "h_mH_reco_core",
+    "logy": False,
+    "stack": False,
+    "ymax": 150000,
+    "xtitle": "mH (reco) [GeV]",
+    "ytitle": "Events",
+}
+
+hists["h_mH_gen_core"] = {
+    "output": "h_mH_gen_core",
+    "logy": False,
+    "stack": False,
+    "ymax": 150000,
+    "xtitle": "mH (gen) [GeV]",
+    "ytitle": "Events",
+}
+
