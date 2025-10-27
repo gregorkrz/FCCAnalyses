@@ -285,7 +285,7 @@ hists["h_mH_gen_core"] = {
     "output": "h_mH_gen_core",
     "logy": False,
     "stack": False,
-    "ymax": 150000,
+    "ymax": 150000, # Can I set this to auto?
     "xtitle": "mH (gen) [GeV]",
     "ytitle": "Events",
 }

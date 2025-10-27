@@ -20,6 +20,22 @@
 
 
 namespace FCCAnalyses { namespace Utils {
+
+
+    Vec_rp convert_calohits_to_vec_rp(const ROOT::VecOps::RVec<edm4hep::CalorimeterHitData> & calohits) {
+        Vec_rp rp;
+        for(auto & hit : calohits) {
+            edm4hep::ReconstructedParticleData p;
+            p.energy = hit.energy;
+            p.mass = 0.;
+            p.momentum.x = hit.position.x;
+            p.momentum.y = hit.position.y;
+            p.momentum.z = hit.position.z;
+            p.PDG = 22; // photon
+            rp.push_back(p);
+        }
+        return rp;
+    }
     tuple<vector<float>, vector<float>, vector<float>, vector<int>> serialize_event(Vec_rp rp) {
     // return tuple of eta, phi, pt
     vector<float> eta;

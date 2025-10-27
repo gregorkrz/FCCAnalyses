@@ -8,11 +8,10 @@ from event_displays import Vec_RP, Event
 from truth_matching import get_Higgs_mass_with_truth_matching
 from jet_helper import get_jet_vars
 
-
 #inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 ### TEMPORARILY ###
-inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/1k_evt1/"
 
+inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/22102025/ISR_ecm240"
 
 processList = {
     #'p8_ee_WW_ecm365_fullhad': {'fraction': 0.01},
@@ -62,13 +61,14 @@ PLOT_IDX = 4
 
 gf = "GenJetDurhamN4"
 rf = "JetDurhamN4"
+
 if PLOT_IDX == 3 or PLOT_IDX == 4:
     gf = "GenJetFastJet"
     rf = "RecoJetFastJet"
 
 
 # Optional: output directory, default is local running directory
-outputDir = "../../idea_fullsim/fast_sim/1kEventsNOISR_event_displays_vvbb_" + str(PLOT_IDX)
+outputDir = "../../idea_fullsim/fast_sim/Histograms_ECM240/Event_displays_GenJetDurhamFastJet_ISR_Durham_" + str(PLOT_IDX)
 #outputDir = "../../idea_fullsim/fast_sim/histograms"
 
 def plot_filter(E_reco_over_true, n_unmatched, inv_mass_gen_all, idx=1):
@@ -153,21 +153,27 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_genjets_eta", "std::get<0>(_serialized_genjets);")
     df = df.Define("_serialized_genjets_phi", "std::get<1>(_serialized_genjets);")
     df = df.Define("_serialized_genjets_pt", "std::get<2>(_serialized_genjets);")
-    # Also get the truth particles (quarks etc.)
 
+    df = df.Define("_calohits_as_vec_rp", "FCCAnalyses::ZHfunctions::convert_calohits_to_vec_rp(CalorimeterHits);")
+    df = df.Define("_calohits_serialized", "FCCAnalyses::Utils::serialize_event(_calohits_as_vec_rp);")
+    df = df.Define("_calohits_eta", "std::get<0>(_calohits_serialized);")
+    df = df.Define("_calohits_phi", "std::get<1>(_calohits_serialized);")
+    df = df.Define("_calohits_pt", "std::get<2>(_calohits_serialized);")
+
+
+    # Also get the truth particles (quarks etc.)
     df = get_Higgs_mass_with_truth_matching(df, genjets_field=gf, recojets_field=rf)
     df = df.Define("MCparts", "FCCAnalyses::Utils::serialize_event(MC_part_asjets)")
     df = df.Define("MCparts_eta", "std::get<0>(MCparts);")
     df = df.Define("MCparts_phi", "std::get<1>(MCparts);")
     df = df.Define("MCparts_pt", "std::get<2>(MCparts);")
-
     df = df.Define("inv_mass_all_gen_particles", "FCCAnalyses::ZHfunctions::invariant_mass(stable_gen_part_neutrinoFilter);")
     tonumpy = df.AsNumpy(["_serialized_evt_eta", "_serialized_evt_phi", "_serialized_evt_pt", "_serialized_jets_eta",
                           "_serialized_jets_phi", "_serialized_jets_pt", "_serialized_initial_partons_eta",
                           "_serialized_initial_partons_phi", "_serialized_initial_partons_pt", "_serialized_genjets_eta",
                           "_serialized_genjets_phi", "_serialized_genjets_pt", "_serialized_evt_gen_eta",
                           "_serialized_evt_gen_phi", "_serialized_evt_gen_pt", "MCparts_eta", "MCparts_phi", "MCparts_pt",
-                          "_serialized_evt_gen_PDG"])
+                          "_serialized_evt_gen_PDG", "_calohits_eta", "_calohits_phi", "_calohits_pt"])
 
     tonumpy = {key: list([list(x) for x in tonumpy[key]]) for key in tonumpy}
     inv_mass_gen_all = list(df.AsNumpy(["inv_mass_gen_all"])["inv_mass_gen_all"])
@@ -224,11 +230,16 @@ def build_graph(df, dataset):
             mcpart_eta, mcpart_phi, mcpart_pt = tonumpy["MCparts_eta"][event_idx], tonumpy["MCparts_phi"][event_idx], tonumpy["MCparts_pt"][event_idx]
             vec_mcparts = Vec_RP(eta=mcpart_eta, phi=mcpart_phi, pt=mcpart_pt)
             print("Length of initial partons: ", len(mcpart_eta))
+
+            calohits_eta, calohits_phi = tonumpy["_calohits_eta"][event_idx], tonumpy["_calohits_phi"][event_idx]
+            calohits_pt = np.ones(len(calohits_eta)) * 0.1  # Dummy pt for calohits (for some reason energy is not being stored)
+
+
             #gj_fccanalysis_eta, gj_fccanalysis_phi, gj_fccanalysis_pt = tonumpy["fj_eta"][event_idx], tonumpy["fj_phi"][event_idx], tonumpy["fj_pt"][event_idx]
             #vec_genjets_fccanalysis = Vec_RP(eta=gj_fccanalysis_eta, phi=gj_fccanalysis_phi, pt=gj_fccanalysis_pt)
             event = Event(vec_rp=vec_rp, additional_collections={
                 "RecoJets": vec_jets, "InitialPartons": vec_mcparts, "GenJets": vec_genjets,
-                "Status1GenParticles": vec_mc,} #"GenJetsFCCAnalysis": vec_genjets_fccanalysis}
+                "Status1GenParticles": vec_mc, "CaloHits": calohits_pt} #"GenJetsFCCAnalysis": vec_genjets_fccanalysis}
             )
 
             fig, ax = event.display()
