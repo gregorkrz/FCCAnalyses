@@ -183,7 +183,7 @@ for method in ["std68", "RMS", "interquantile_range"]:
             bin_to_histograms_storage[process] = bin_to_histograms
             fig_histograms.tight_layout()
             fig_histograms.savefig(
-                "../../idea_fullsim/fast_sim/{}/{}/bins_{}.pdf".format(histograms_folder, os.environ["FOLDER_NAME"], process)
+                "../../idea_fullsim/fast_sim/{}/{}/bins_{}_{}.pdf".format(histograms_folder, os.environ["FOLDER_NAME"], process, method)
             )
         ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
         ax[1].plot(bin_mid_points, resp, ".--", label=process)

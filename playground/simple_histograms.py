@@ -101,4 +101,52 @@ plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/matching_efficiency_vs_energy.pdf".format(os.environ["FOLDER_NAME"]))
+plt.clf()
 
+
+
+## Produce the Higgs mass plots similar to the ones in the fccanalysis plots file but easier to manipulate
+fig, ax = plt.subplots(figsize=(6, 6))
+# Higgs mass histogram
+
+for fname in root_files:
+    file_path = os.path.join(inputDir, fname)
+    f = ROOT.TFile.Open(file_path)
+    if not f or f.IsZombie():
+        print(f"Could not open {fname}")
+        continue
+    hist_gen = f.Get("h_mH_gen")
+    hist_reco = f.Get("h_mH_reco")
+    if not hist_gen or not hist_reco:
+        print(f"No 'h_mH_gen'/'h_mH_reco' histogram in {fname}")
+        f.Close()
+        continue
+    n_bins = hist_gen.GetNbinsX()
+    x_vals_gen = np.array([hist_gen.GetBinCenter(i) for i in range(1, n_bins + 1)])
+    y_vals_gen = np.array([hist_gen.GetBinContent(i) for i in range(1, n_bins + 1)])
+    # Normalize
+    integral = np.sum(y_vals_gen)
+    print("Integral of histogram in {}: {}".format(fname, integral))
+    if integral > 0:
+        y_vals = y_vals_gen / integral
+    else:
+        print(f"Warning: {fname} histogram integral = 0")
+    # Plot
+    label = os.path.splitext(fname)[0]
+    # plot the histograms with bins for reco (full lines) and gen(dashed lines)
+    n_bins = hist_reco.GetNbinsX()
+    x_vals_reco = np.array([hist_reco.GetBinCenter(i) for i in range(1, n_bins + 1)])
+    y_vals_reco = np.array([hist_reco.GetBinContent(i) for i in range(1, n_bins + 1)])
+    integral_reco = np.sum(y_vals_reco)
+    print("Integral of histogram in {}: {}".format(fname, integral_reco))
+    if integral_reco > 0:
+        y_vals_reco = y_vals_reco / integral_reco
+    else:
+        print(f"Warning: {fname} histogram integral = 0")
+
+    ax.plot(x_vals_reco, y_vals_reco, label=label + " (reco)", linestyle='solid')
+    ax.plot(x_vals_gen, y_vals_gen, label=label + " (gen)", linestyle='dashed')
+    p = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/higgs_mass_reco_vs_gen.pdf".format(os.environ["FOLDER_NAME"])
+    fig.savefig(p)
+    print("saving to", p)
+    f.Close()

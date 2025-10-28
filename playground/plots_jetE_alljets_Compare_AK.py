@@ -16,7 +16,7 @@ assert "HISTOGRAMS_FOLDER_NAME" in os.environ # default: Histograms_ECM240_AK_or
 intLumi        = 1.
 intLumiLabel   = ""
 #ana_tex        = 'All matched jets using deltaR matching'
-ana_tex=os.environ["FOLDER_NAME"]
+ana_tex = os.environ["FOLDER_NAME"]
 delphesVersion = '3.4.2'
 energy         = 240.0
 collider       = 'FCC-ee'

@@ -13,16 +13,23 @@ from jet_helper import get_jet_vars
 
 inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/22102025/ISR_ecm240"
 
-processList = {
-    #'p8_ee_WW_ecm365_fullhad': {'fraction': 0.01},
-    #"p8_ee_ZH_qqbb_ecm365": {'fraction': 0.01},
-    #"p8_ee_ZH_6jet_ecm365": {'fraction': 0.01},
-    "p8_ee_ZH_vvbb_ecm365": {"fraction": 1},
-    #"p8_ee_ZH_bbbb_ecm365": {'fraction': 0.01},
-    #"p8_ee_ZH_vvgg_ecm365": {'fraction': 0.01},
-    #"p8_ee_ZH_qqbb_ecm365": {'fraction': 1},
+nJets_processList = {
+    "p8_ee_ZH_qqbb_ecm240": 4,
+    "p8_ee_ZH_6jet_ecm240": 6,
+    "p8_ee_ZH_vvbb_ecm240": 2,
+    "p8_ee_ZH_bbbb_ecm240": 4,
+    "p8_ee_ZH_vvgg_ecm240": 2,
 }
 
+processList = {
+    #'p8_ee_WW_ecm365_fullhad': {'fraction': 0.01},
+    #"p8_ee_ZH_qqbb_ecm240": {'fraction': 0.01},
+    #"p8_ee_ZH_6jet_ecm240": {'fraction': 0.01},
+    "p8_ee_ZH_vvbb_ecm240": {"fraction": 1},
+    #"p8_ee_ZH_bbbb_ecm240": {'fraction': 0.01},
+    #"p8_ee_ZH_vvgg_ecm240": {'fraction': 0.01},
+    #"p8_ee_ZH_qqbb_ecm240": {'fraction': 1},
+}
 
 #def get_files(procname):
 #    prefix = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
@@ -126,11 +133,8 @@ def build_graph(df, dataset):
     df = df.Define("stable_gen_part_neutrinoFilter", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
     df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", N_durham=2, name="FastJet_jets")
     df = get_jet_vars(df, "ReconstructedParticles", N_durham=2, name="FastJet_jets_reco")
-
-    df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets)")
-    df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco)")
-
-
+    df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets, {})".format(nJets_processList[dataset]))
+    df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(nJets_processList[dataset]))
     df = df.Define("_serialized_evt_gen", "FCCAnalyses::Utils::serialize_event(stable_gen_part_neutrinoFilter);")
     #df = df.Define("")  # JET CLUSTERING HERE
     #df = get_jet_vars(df, "ReconstructedParticles", N_durham=2)
@@ -154,7 +158,7 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_genjets_phi", "std::get<1>(_serialized_genjets);")
     df = df.Define("_serialized_genjets_pt", "std::get<2>(_serialized_genjets);")
 
-    df = df.Define("_calohits_as_vec_rp", "FCCAnalyses::ZHfunctions::convert_calohits_to_vec_rp(CalorimeterHits);")
+    df = df.Define("_calohits_as_vec_rp", "FCCAnalyses::Utils::convert_calohits_to_vec_rp(CalorimeterHits);")
     df = df.Define("_calohits_serialized", "FCCAnalyses::Utils::serialize_event(_calohits_as_vec_rp);")
     df = df.Define("_calohits_eta", "std::get<0>(_calohits_serialized);")
     df = df.Define("_calohits_phi", "std::get<1>(_calohits_serialized);")
@@ -232,14 +236,15 @@ def build_graph(df, dataset):
             print("Length of initial partons: ", len(mcpart_eta))
 
             calohits_eta, calohits_phi = tonumpy["_calohits_eta"][event_idx], tonumpy["_calohits_phi"][event_idx]
-            calohits_pt = np.ones(len(calohits_eta)) * 0.1  # Dummy pt for calohits (for some reason energy is not being stored)
-
+            calohits_pt = np.ones(len(calohits_eta)) * 5  # Dummy pt for calohits (for some reason energy is not being stored)
+            vec_calohits = Vec_RP(eta=calohits_eta, phi=calohits_phi, pt=calohits_pt)
+            print("Vec calohits: eta : ", calohits_eta[:5], " phi: ", calohits_phi[:5], " pt: ", calohits_pt[:5])
 
             #gj_fccanalysis_eta, gj_fccanalysis_phi, gj_fccanalysis_pt = tonumpy["fj_eta"][event_idx], tonumpy["fj_phi"][event_idx], tonumpy["fj_pt"][event_idx]
             #vec_genjets_fccanalysis = Vec_RP(eta=gj_fccanalysis_eta, phi=gj_fccanalysis_phi, pt=gj_fccanalysis_pt)
             event = Event(vec_rp=vec_rp, additional_collections={
                 "RecoJets": vec_jets, "InitialPartons": vec_mcparts, "GenJets": vec_genjets,
-                "Status1GenParticles": vec_mc, "CaloHits": calohits_pt} #"GenJetsFCCAnalysis": vec_genjets_fccanalysis}
+                "Status1GenParticles": vec_mc, "CaloHits": vec_calohits} #"GenJetsFCCAnalysis": vec_genjets_fccanalysis}
             )
 
             fig, ax = event.display()

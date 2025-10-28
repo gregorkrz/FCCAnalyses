@@ -1,10 +1,8 @@
 #fccsw tutorial
 # fccanalysis plots plots_jetE_alljets.py
 
-
 import ROOT
 import os
-
 
 assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
 assert "FOLDER_NAME" in os.environ
@@ -263,7 +261,7 @@ hists["h_E_all_gen_jets"] = {
     "xtitle": "gen jet E",
     "ytitle": "Events"
 }
-
+'''
 hists["h_calo_hit_energy"] = {
     "output": "h_calo_hit_energy",
     "logy": False,
@@ -271,22 +269,21 @@ hists["h_calo_hit_energy"] = {
     "xtitle": "Calo hit energy",
     "ytitle": "Hits"
 }
-
+'''
 hists["h_mH_reco_core"] = {
     "output": "h_mH_reco_core",
-    "logy": False,
+    "logy": True,
     "stack": False,
-    "ymax": 150000,
+    #"ymax": 150000,
     "xtitle": "mH (reco) [GeV]",
     "ytitle": "Events",
 }
 
 hists["h_mH_gen_core"] = {
     "output": "h_mH_gen_core",
-    "logy": False,
+    "logy": True,
     "stack": False,
-    "ymax": 150000, # Can I set this to auto?
+    #"ymax": 150000, # Can I set this to auto?
     "xtitle": "mH (gen) [GeV]",
     "ytitle": "Events",
 }
-

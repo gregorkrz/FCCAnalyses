@@ -30,7 +30,7 @@ class Event:
                         a.annotate(txt, (vec.eta[i], vec.phi[i]), fontsize=8, alpha=0.7)
             for idx, a in enumerate(ax):
                 if idx == 2: continue
-                a.scatter(vec.eta, vec.phi, s=vec.pt, label=label, alpha=0.5, marker=self.special_symbols.get(label, "o"))
+                a.scatter(vec.eta, vec.phi, s=vec.pt, label=label + "L={}".format(len(vec.pt)), alpha=0.5, marker=self.special_symbols.get(label, "o"))
         for key in ["RecoJets", "GenJets", "IntialPartons", "GenJetsFCCAnalysis"]:
             markers = {
                 "RecoJets": "*",
