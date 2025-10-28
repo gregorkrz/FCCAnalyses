@@ -22,6 +22,33 @@
 
 namespace FCCAnalyses { namespace ZHfunctions {
 
+struct rp {
+    float momentum[3] = {0,0,0};
+    float energy = 0;
+    float mass = 0;
+    int charge = 0;
+    int PDG = 0;
+};
+
+
+Vec_rp convert(vector<rp> in) {
+    Vec_rp out;
+     //vec_rp is ROOT:VecOps::RVec< edm4hep::ReconstructedParticleData >
+    for (auto & p : in) {
+        edm4hep::ReconstructedParticleData rp;
+        rp.momentum.x = p.momentum[0];
+        rp.momentum.y = p.momentum[1];
+        rp.momentum.z = p.momentum[2];
+        rp.energy = p.energy;
+        rp.mass = p.mass;
+        rp.charge = p.charge;
+        rp.PDG = p.PDG;
+        out.push_back(rp);
+    }
+    return out;
+}
+
+
 // TRUTH TOOLS
 
 vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the MCParticle collection (the ones which jets we then detect)
@@ -52,6 +79,33 @@ vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the M
   }
   return res;
 }*/
+
+Vec_rp get_particles_from_mc2rp(vector<int> mc_part_idx, vector<int> mc2rp, Vec_rp reco_particles) {
+    // for each mc part idx, pick the appropriate reco particle
+    vector<rp> result;
+    for (auto & mc_idx : mc_part_idx) {
+        if(mc_idx >= 0 && mc_idx < mc2rp.size()) {
+            int rp_idx = mc2rp[mc_idx];
+            if(rp_idx >= 0 && rp_idx < reco_particles.size()) {
+                rp temp;
+                edm4hep::ReconstructedParticleData rp_data = reco_particles[rp_idx];
+                temp.momentum[0] = rp_data.momentum.x;
+                temp.momentum[1] = rp_data.momentum.y;
+                temp.momentum[2] = rp_data.momentum.z;
+                const float px = temp.momentum[0];
+                const float py = temp.momentum[1];
+                const float pz = temp.momentum[2];
+                const float e  = reco_particles[rp_idx].energy;
+                const float m2 = e*e - (px*px + py*py + pz*pz);
+                temp.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
+                temp.energy = e;
+                temp.charge = reco_particles[rp_idx].charge;
+                result.push_back(temp);
+            }
+        }
+    }
+    return convert(result);
+}
 
 
 pair<vector<int>,vector<int>>  getRP2MC_index(ROOT::VecOps::RVec<int> recind, ROOT::VecOps::RVec<int> mcind, Vec_rp reco, Vec_mc mc) {
@@ -253,7 +307,39 @@ vector<float> get_jet_distances(Vec_rp jets) {
     return result;
 }
 
+pair<vector<int>, Vec_rp> select_gt_particles(vector<int> gt_labels, Vec_mc mc_particles) {
+    vector<int> result_idx;
+    vector<rp> result_particles;
+    for (size_t i = 0; i < gt_labels.size(); ++i) {
+        if(gt_labels[i] != -1) {
+            // Get the generator status of the ith mc particle
+            int gen_status = mc_particles[i].generatorStatus;
+            int pdg = abs(mc_particles[i].PDG);
+            if ((gen_status != 1) || (pdg == 12) || (pdg == 14) || (pdg == 16)) {
+                continue; // Skip non-final-state-stable particles and neutrinos
+            }
+            result_idx.push_back(i);
+            rp temp;
+            temp.momentum[0] = mc_particles[i].momentum.x;
+            temp.momentum[1] = mc_particles[i].momentum.y;
+            temp.momentum[2] = mc_particles[i].momentum.z;
+            const float px = temp.momentum[0];
+            const float py = temp.momentum[1];
+            const float pz = temp.momentum[2];
+            const float m = mc_particles[i].mass;
+            const float e = std::sqrt(px*px + py*py + pz*pz + m*m);
+            const float m2 = e*e - (px*px + py*py + pz*pz);
+            temp.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
+            temp.energy = e;
+            temp.charge = mc_particles[i].charge;
+            result_particles.push_back(temp);
+        }
+    }
+    return make_pair(result_idx, convert(result_particles));
+}
+
 vector<int> getGTLabels(vector<int> initial_quarks, Vec_mc in, ROOT::VecOps::RVec<int> ind) {
+     // Note: some final-state products can have multiple initial quarks as ancestors, so this only makes sense e.g. for getting final-state particles coming from the Higgs
     vector<int> result; // For each unique initial quark, get the list of all its decay products (recursively)
     // Set result to -1's of the size of in
     //rdfVerbose << "Getting GT labels for " << initial_quarks.size() << " initial quarks." << endl;
@@ -261,7 +347,8 @@ vector<int> getGTLabels(vector<int> initial_quarks, Vec_mc in, ROOT::VecOps::RVe
     for (size_t i = 0; i < initial_quarks.size(); ++i) {
         vector<int> list_of_particles = get_list_of_end_decay_products_recursive(initial_quarks[i], in, ind);
         rdfVerbose << "Particle " << i << " (index " << initial_quarks[i] << ") has " << list_of_particles.size() << " decay products." << endl;
-        // now print all of those decay products in one line. this needs to be done in a single rdfVerbose statement to avoid interleaving with other messages
+        // Now print all of those decay products in one line.
+        // This needs to be done in a single rdfVerbose statement to avoid interleaving with other messages
         string decay_products = "";
         for (size_t j = 0; j < list_of_particles.size(); ++j) {
             decay_products += to_string(list_of_particles[j]) + " ";
@@ -277,8 +364,6 @@ vector<int> getGTLabels(vector<int> initial_quarks, Vec_mc in, ROOT::VecOps::RVe
             }*/
         }
     }
-    // Exit, only proc one event
-    exit(0);
     return result;
 }
 
@@ -295,30 +380,7 @@ vector<int> convertMCJetLabelsIntoRecoJetLabels(vector<int> mc_labels, vector<in
     }
     return result;
 }
-struct rp {
-    float momentum[3] = {0,0,0};
-    float energy = 0;
-    float mass = 0;
-    int charge = 0;
-    int PDG = 0;
-};
 
-Vec_rp convert(vector<rp> in) {
-    Vec_rp out;
-     //vec_rp is ROOT:VecOps::RVec< edm4hep::ReconstructedParticleData >
-    for (auto & p : in) {
-        edm4hep::ReconstructedParticleData rp;
-        rp.momentum.x = p.momentum[0];
-        rp.momentum.y = p.momentum[1];
-        rp.momentum.z = p.momentum[2];
-        rp.energy = p.energy;
-        rp.mass = p.mass;
-        rp.charge = p.charge;
-        rp.PDG = p.PDG;
-        out.push_back(rp);
-    }
-    return out;
-}
 
 
 Vec_rp get_GT_jets_from_initial_particles(Vec_mc mc_particles, vector<int> quark_idx) {
@@ -331,6 +393,7 @@ Vec_rp get_GT_jets_from_initial_particles(Vec_mc mc_particles, vector<int> quark
             p.momentum[1] = mc_particles[i].momentum.y;
             p.momentum[2] = mc_particles[i].momentum.z;
             //p.energy = mc_particles[i].energy;
+            p.mass = mc_particles[i].mass;
             // get energy
             p.energy = std::sqrt(mc_particles[i].momentum.x * mc_particles[i].momentum.x +
                                      mc_particles[i].momentum.y * mc_particles[i].momentum.y +

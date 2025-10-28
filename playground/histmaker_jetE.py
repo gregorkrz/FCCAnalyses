@@ -21,11 +21,16 @@ frac = 1
 processList = {
     #'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
     ############## SINGLE HIGGS PROCESSES ######################
-    "p8_ee_ZH_qqbb_ecm240": {'fraction': frac},
+    # 6 jets
     "p8_ee_ZH_6jet_ecm240": {'fraction': frac},
-    "p8_ee_ZH_vvbb_ecm240": {'fraction': frac},
+    # 4 jets
+    "p8_ee_ZH_qqbb_ecm240": {'fraction': frac},
     "p8_ee_ZH_bbbb_ecm240": {'fraction': frac},
-    "p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
+    # 2 jets
+    #"p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
+    "p8_ee_ZH_vvqq_ecm240": {'fraction': frac},
+    "p8_ee_ZH_vvbb_ecm240": {'fraction': frac},
+
     #############################################################
 
     # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
@@ -40,6 +45,7 @@ nJets_processList = {
     "p8_ee_ZH_vvbb_ecm240": 2,
     "p8_ee_ZH_bbbb_ecm240": 4,
     "p8_ee_ZH_vvgg_ecm240": 2,
+    "p8_ee_ZH_vvqq_ecm240": 2
 }
 
 #def get_files(procname):
@@ -103,6 +109,7 @@ def neg_format(number):
 
 def build_graph(df, dataset):
     #results = []
+    print("############## Doing dataset:", dataset, "##############")
     df = df.Define("weight", "1.0")
     weightsum = df.Sum("weight")
     df = df.Define("calo_hit_energy", "CalorimeterHits.energy")
@@ -123,6 +130,9 @@ def build_graph(df, dataset):
         ak_radius = float(os.environ.get("AK_RADIUS", "0.4"))
         df = get_jet_vars(df, "stable_gen_particles", AK_radius=ak_radius, name="FastJet_jets")
         df = get_jet_vars(df, "ReconstructedParticles", AK_radius=ak_radius, name="FastJet_jets_reco")
+    elif os.environ.get("JET_ALGO", "durham").lower() == "calojetdurham":
+        df = get_jet_vars(df, "stable_gen_particles", N_durham=nJets_processList[dataset], name="FastJet_jets")
+        df = df.Define("FastJet_jets_reco", "CaloJetDurham")
     else:
         raise ValueError("Unknown JET_ALGO: {}".format(os.environ.get("JET_ALGO")))
     # For eeKT:
@@ -130,7 +140,10 @@ def build_graph(df, dataset):
     #df = get_jet_vars(df, "ReconstructedParticles", ee_pt_cutoff=0, name="FastJet_jets_reco")
     first_k = nJets_processList[dataset]
     df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets, {})".format(first_k))
-    df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(first_k))
+    if not os.environ.get("JET_ALGO", "durham").lower() == "calojetdurham":
+        df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(first_k))
+    else:
+        df = df.Define("RecoJetFastJet", "FastJet_jets_reco")
     #print("recojet fastjet:", df.AsNumpy([RecoJetVariable])[RecoJetVariable])
     df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(RecoJetVariable))
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(GenJetVariable))
@@ -221,4 +234,11 @@ def build_graph(df, dataset):
     h_mH_reco_all = df.Histo1D(("h_mH_reco_all", "Higgs mass from all reco jets;M_H (all reco jets);Events", 100, 0, 250), "inv_mass_reco_all")
     results = results + [h_mH_reco, h_mH_gen, h_mH_gen_all, h_mH_reco_all, h_mH_all_stable_part, h_Ejet, h_Egenjet,
                          hist_calo_hist_E, h_mH_reco_core, h_mH_gen_core]
+
+    #### More mass histograms: for inv_mass_stable_gt_particles_from_higgs, inv_mass_reco_particles_matched_from_higgs, inv_mass_MC_part
+    h_mH_stable_gt_particles = df.Histo1D(("h_mH_stable_gt_particles", "Higgs mass from stable gt particles;M_H (stable gt particles);Events", 100, 0, 250), "inv_mass_stable_gt_particles_from_higgs")
+    h_mH_reco_particles_matched = df.Histo1D(("h_mH_reco_particles_matched", "Higgs mass from reco particles matched;M_H (reco particles matched);Events", 100, 0, 250), "inv_mass_reco_particles_matched_from_higgs")
+    h_mH_MC_part = df.Histo1D(("h_mH_MC_part", "Higgs mass from initial MC part.;M_H (MC part);Events", 100, 0, 250), "inv_mass_MC_part")
+    results = results + [h_mH_stable_gt_particles, h_mH_reco_particles_matched, h_mH_MC_part]
+
     return results + histograms + [h_eta, h_eta_gen], weightsum

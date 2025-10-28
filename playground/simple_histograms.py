@@ -143,10 +143,8 @@ for fname in root_files:
         y_vals_reco = y_vals_reco / integral_reco
     else:
         print(f"Warning: {fname} histogram integral = 0")
-
     ax.plot(x_vals_reco, y_vals_reco, label=label + " (reco)", linestyle='solid')
     ax.plot(x_vals_gen, y_vals_gen, label=label + " (gen)", linestyle='dashed')
-    p = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/higgs_mass_reco_vs_gen.pdf".format(os.environ["FOLDER_NAME"])
-    fig.savefig(p)
-    print("saving to", p)
-    f.Close()
+p = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/higgs_mass_reco_vs_gen.pdf".format(os.environ["FOLDER_NAME"])
+fig.savefig(p)
+print("saving to", p)

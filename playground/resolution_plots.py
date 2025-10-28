@@ -114,6 +114,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
         assert len(edges) == len(y) + 1
         return y, edges
     bin_mid_points = []
+    lo_hi_MPV = []
     sigmaEoverE = []
     responses = []
     bins_to_histograms = {}
@@ -159,7 +160,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             std68 = 0.5 * (high - low)
         else:
             raise ValueError(f"Unknown sigma method: {sigma_method}")
-
+        lo_hi_MPV.append([low, high, MPV])
         bin_mid = 0.5 * (bins[i] + bins[i + 1])
         bin_mid_points.append(bin_mid)
         sigmaEoverE.append(std68 / MPV)
@@ -168,17 +169,20 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
     ax_hist.legend()
     ax_hist.set_xlabel(r'$E_{reco} / E_{true}$')
     ax_hist.set_ylabel('Entries')
-    return bin_mid_points, sigmaEoverE, fig_hist, responses, bins_to_histograms
-
+    return bin_mid_points, sigmaEoverE, fig_hist, responses, bins_to_histograms, lo_hi_MPV
 
 bin_to_histograms_storage = {}
+method_low_high_mid_point_storage = {}
 
 for method in ["std68", "RMS", "interquantile_range"]:
     print("-----------------------------------------------------------")
     print("Using sigma method:", method)
     fig, ax = plt.subplots(2, 1, figsize=(8, 6))
     for process in sorted(list(processList.keys())):
-        bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms = get_result_for_process(process, sigma_method=method)
+        bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms, mpv_lo_hi = get_result_for_process(process, sigma_method=method)
+        if process not in method_low_high_mid_point_storage:
+            method_low_high_mid_point_storage[process] = {}
+        method_low_high_mid_point_storage[process][method] = mpv_lo_hi
         if method == "std68":
             bin_to_histograms_storage[process] = bin_to_histograms
             fig_histograms.tight_layout()
@@ -195,6 +199,7 @@ for method in ["std68", "RMS", "interquantile_range"]:
     fig.tight_layout()
     fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_{}.pdf".format(histograms_folder, args.output, method))
 
+method_to_color = {"std68": "blue", "RMS": "orange", "interquantile_range": "green"}
 ### Plot each bin on a separate plot, but different processes on same plot
 fig, ax = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
 for i in range(len(binsE) - 1):
@@ -203,6 +208,13 @@ for i in range(len(binsE) - 1):
         # plot on ax[i]
         bin_widths = np.diff(edges)
         ax[i].step(edges[:-1], y_normalized, where="post", label=process)
+        for method in method_low_high_mid_point_storage[process]:
+            lo, hi, mpv = method_low_high_mid_point_storage[process][method][i]
+            # plot vertical lines at lo, hi and mppv using method_to_color
+            ax[i].axvline(lo, color=method_to_color[method], linestyle="--", alpha=0.8)
+            ax[i].axvline(hi, color=method_to_color[method], linestyle="--", alpha=0.8)
+            ax[i].axvline(mpv, color=method_to_color[method], linestyle="-", alpha=0.8)
+
     ax[i].set_title(f'Bin [{binsE[i]}, {binsE[i + 1]}] GeV')
     ax[i].set_ylabel('Entries')
     ax[i].legend()
@@ -215,7 +227,7 @@ fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison.pdf".f
 
 fig, ax = plt.subplots(2, 1, figsize=(8, 6))
 for process in sorted(list(processList.keys())):
-    bin_mid_points, sigmaEoverE, fig_histograms, resp, _ = get_result_for_process(process, bins=bins_eta, suffix="eta_")
+    bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _ = get_result_for_process(process, bins=bins_eta, suffix="eta_")
     fig_histograms.tight_layout()
     fig_histograms.savefig(
         "../../idea_fullsim/fast_sim/{}/{}/bins_eta_{}.pdf".format(histograms_folder, args.output, process)

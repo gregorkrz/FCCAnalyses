@@ -287,3 +287,28 @@ hists["h_mH_gen_core"] = {
     "xtitle": "mH (gen) [GeV]",
     "ytitle": "Events",
 }
+
+hists["h_mH_stable_gt_particles"] = {
+    "output": "h_mH_stable_gt_particles",
+    "logy": False,
+    "stack": False,
+    "xtitle": "Higgs mass from stable GT particles",
+    "ytitle": "Events"
+}
+
+hists["h_mH_reco_particles_matched"] = {
+    "output": "h_mH_reco_particles_matched",
+    "logy": False,
+    "stack": False,
+    "xtitle": "Higgs mass from reco particles matched from Higgs",
+    "ytitle": "Events"
+}
+
+
+hists["h_mH_MC_part"] =  {
+    "output": "h_mH_MC_part",
+    "logy": False,
+    "stack": False,
+    "xtitle": "Higgs mass from MC partons",
+    "ytitle": "Events"
+}
