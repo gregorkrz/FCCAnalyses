@@ -30,18 +30,18 @@ class Event:
                         a.annotate(txt, (vec.eta[i], vec.phi[i]), fontsize=8, alpha=0.7)
             for idx, a in enumerate(ax):
                 if idx == 2: continue
-                a.scatter(vec.eta, vec.phi, s=vec.pt, label=label + "L={}".format(len(vec.pt)), alpha=0.5, marker=self.special_symbols.get(label, "o"))
-        for key in ["RecoJets", "GenJets", "IntialPartons", "GenJetsFCCAnalysis"]:
+                a.scatter(vec.eta, vec.phi, s=vec.pt, label=label + " L={}".format(len(vec.pt)), alpha=0.5, marker=self.special_symbols.get(label, "o"))
+        for key in ["RecoJets", "GenJets", "InitialPartons", "GenJetsFCCAnalysis"]:
             markers = {
                 "RecoJets": "*",
                 "GenJets": "D",
-                "IntialPartons": "X",
+                "InitialPartons": "X",
                 "GenJetsFCCAnalysis": "P"
             }
             if key in self.additional_collections:
                 if key in self.additional_collections:
                     vec = self.additional_collections[key]
-                    ax[2].scatter(vec.eta, vec.phi, s=np.array(vec.pt)*3.0, label=key + " l={} pt={} eta={}".format(len(vec.eta), str([round(x, 2) for x in vec.pt]), str([round(x, 2) for x in vec.eta])), alpha=0.7, marker=markers[key])
+                    ax[2].scatter(vec.eta, vec.phi, s=np.array(vec.pt)*3.0, label=key + " L={}".format(len(vec.eta), str([round(x, 2) for x in vec.pt]), str([round(x, 2) for x in vec.eta])), alpha=0.7, marker=markers[key])
 
         # Autoscale the axes
         #ax.autoscale()

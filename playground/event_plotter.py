@@ -11,7 +11,8 @@ from jet_helper import get_jet_vars
 #inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 ### TEMPORARILY ###
 
-inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/22102025/ISR_ecm240"
+inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/20251028"
+
 
 nJets_processList = {
     "p8_ee_ZH_qqbb_ecm240": 4,
@@ -24,8 +25,8 @@ nJets_processList = {
 processList = {
     #'p8_ee_WW_ecm365_fullhad': {'fraction': 0.01},
     #"p8_ee_ZH_qqbb_ecm240": {'fraction': 0.01},
-    #"p8_ee_ZH_6jet_ecm240": {'fraction': 0.01},
-    "p8_ee_ZH_vvbb_ecm240": {"fraction": 1},
+    "p8_ee_ZH_6jet_ecm240": {'fraction': 0.01}, # DEBUG THE 6-JET EVENT
+    #"p8_ee_ZH_vvbb_ecm240": {"fraction": 1},
     #"p8_ee_ZH_bbbb_ecm240": {'fraction': 0.01},
     #"p8_ee_ZH_vvgg_ecm240": {'fraction': 0.01},
     #"p8_ee_ZH_qqbb_ecm240": {'fraction': 1},
@@ -61,15 +62,16 @@ PLOT IDX options:
 2: events with unmatched reco-to-gen jets
 3: events with invariant mass of the quarks < 100 GeV (what's happening?))
 4: events with invariant mass 123-127 GeV (Higgs mass window)
+5: events with invariant mass < 1 GeV
 
 '''
 
-PLOT_IDX = 4
+PLOT_IDX = 5
 
 gf = "GenJetDurhamN4"
 rf = "JetDurhamN4"
 
-if PLOT_IDX == 3 or PLOT_IDX == 4:
+if PLOT_IDX == 3 or PLOT_IDX == 4 or PLOT_IDX==5:
     gf = "GenJetFastJet"
     rf = "RecoJetFastJet"
 
@@ -78,7 +80,12 @@ if PLOT_IDX == 3 or PLOT_IDX == 4:
 outputDir = "../../idea_fullsim/fast_sim/Histograms_ECM240/Event_displays_GenJetDurhamFastJet_ISR_Durham_" + str(PLOT_IDX)
 #outputDir = "../../idea_fullsim/fast_sim/histograms"
 
-def plot_filter(E_reco_over_true, n_unmatched, inv_mass_gen_all, idx=1):
+def plot_filter(E_reco_over_true, n_unmatched, inv_mass_gen_all, inv_mass_Higgs, idx=1):
+    if idx == 5:
+        if inv_mass_Higgs < 10.0:
+            return True
+        else:
+            return False
     if idx == 3:
         if inv_mass_gen_all < 100.0:
             return True
@@ -131,8 +138,8 @@ def build_graph(df, dataset):
     print("Number of unmatched reco jets per event: ", n_unmatched)
     df = df.Define("_serialized_evt", "FCCAnalyses::Utils::serialize_event(ReconstructedParticles);")
     df = df.Define("stable_gen_part_neutrinoFilter", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
-    df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", N_durham=2, name="FastJet_jets")
-    df = get_jet_vars(df, "ReconstructedParticles", N_durham=2, name="FastJet_jets_reco")
+    df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", N_durham=6, name="FastJet_jets")
+    df = get_jet_vars(df, "ReconstructedParticles", N_durham=6, name="FastJet_jets_reco")
     df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets, {})".format(nJets_processList[dataset]))
     df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(nJets_processList[dataset]))
     df = df.Define("_serialized_evt_gen", "FCCAnalyses::Utils::serialize_event(stable_gen_part_neutrinoFilter);")
@@ -163,8 +170,6 @@ def build_graph(df, dataset):
     df = df.Define("_calohits_eta", "std::get<0>(_calohits_serialized);")
     df = df.Define("_calohits_phi", "std::get<1>(_calohits_serialized);")
     df = df.Define("_calohits_pt", "std::get<2>(_calohits_serialized);")
-
-
     # Also get the truth particles (quarks etc.)
     df = get_Higgs_mass_with_truth_matching(df, genjets_field=gf, recojets_field=rf)
     df = df.Define("MCparts", "FCCAnalyses::Utils::serialize_event(MC_part_asjets)")
@@ -182,7 +187,7 @@ def build_graph(df, dataset):
     tonumpy = {key: list([list(x) for x in tonumpy[key]]) for key in tonumpy}
     inv_mass_gen_all = list(df.AsNumpy(["inv_mass_gen_all"])["inv_mass_gen_all"])
     inv_mass_all_gen_p = list(df.AsNumpy(["inv_mass_all_gen_particles"])["inv_mass_all_gen_particles"])
-
+    inv_mass_reco_higgs = list(df.AsNumpy(["inv_mass_reco"])["inv_mass_reco"])
     gen_jets_inv_mass = []
     gen_p_inv_mass = []
     for event_idx in range(len(l)):
@@ -214,7 +219,7 @@ def build_graph(df, dataset):
     print("Inv mass gen all (first 5 entries):", inv_mass_gen_all[:5])
     for event_idx in range(len(l)):
         ##assert n_unmatched[event_idx]  ==  len([x for x in l[event_idx] if x < 0]), "n_unmatched does not match the length of unmatched jets!:" + str(n_unmatched[event_idx]) + " vs " + str(len([x for x in l[event_idx] if x < 0]))
-        if plot_filter(l[event_idx], n_unmatched[event_idx], inv_mass_gen_all[event_idx], idx=PLOT_IDX):
+        if plot_filter(l[event_idx], n_unmatched[event_idx], inv_mass_gen_all[event_idx], inv_mass_reco_higgs[event_idx], idx=PLOT_IDX):
             if global_event_idx.get(dataset, 0) > 10:
                 return [], weightsum # Just plot 10 events... #
             #event_idx = # I want an event idx that is unique per dataset, even with multiple input root files. How do I do this?
@@ -246,9 +251,8 @@ def build_graph(df, dataset):
                 "RecoJets": vec_jets, "InitialPartons": vec_mcparts, "GenJets": vec_genjets,
                 "Status1GenParticles": vec_mc, "CaloHits": vec_calohits} #"GenJetsFCCAnalysis": vec_genjets_fccanalysis}
             )
-
             fig, ax = event.display()
-            ax[0].set_title("{}, event {}, len(in.part.)={}, mGJ={} mGP={}".format(dataset, global_event_idx.get(dataset, 0), len(mcpart_eta), round(inv_mass_gen_all[event_idx], 2), round(inv_mass_all_gen_p[event_idx], 2)))
+            ax[0].set_title("{}, event {}, len(in.part.)={}, mHreco={}".format(dataset, global_event_idx.get(dataset, 0), len(mcpart_eta), round(inv_mass_reco_higgs[event_idx], 2)))
             fig.tight_layout()
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)

@@ -27,7 +27,7 @@ processList = {
     "p8_ee_ZH_qqbb_ecm240": {'fraction': frac},
     "p8_ee_ZH_bbbb_ecm240": {'fraction': frac},
     # 2 jets
-    #"p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
+    "p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
     "p8_ee_ZH_vvqq_ecm240": {'fraction': frac},
     "p8_ee_ZH_vvbb_ecm240": {'fraction': frac},
 
@@ -226,19 +226,18 @@ def build_graph(df, dataset):
 
     df = df.Define("inv_mass_all_gen_particles", "FCCAnalyses::ZHfunctions::invariant_mass(stable_gen_particles);")
     h_mH_all_stable_part = df.Histo1D(("h_mH_all_stable_part", "Invariant mass of all particles; Minv; Events", 100, 0, 250), "inv_mass_all_gen_particles")
-    h_mH_reco = df.Histo1D(("h_mH_reco", "Higgs mass from reco jets;M_H (reco jets);Events", 100, 0, 250), "inv_mass_reco")
-    h_mH_gen = df.Histo1D(("h_mH_gen", "Higgs mass from gen jets;M_H (gen jets);Events", 100, 0, 250), "inv_mass_gen")
-    h_mH_reco_core = df.Histo1D(("h_mH_reco_core", "Higgs mass from reco jets;M_H (reco jets);Events", 100, 75, 150), "inv_mass_reco")
-    h_mH_gen_core = df.Histo1D(("h_mH_gen_core", "Higgs mass from gen jets;M_H (gen jets);Events", 100, 75, 150), "inv_mass_gen")
-    h_mH_gen_all = df.Histo1D(("h_mH_gen_all", "Higgs mass from all gen jets;M_H (all gen jets);Events", 100, 0, 250), "inv_mass_gen_all")
-    h_mH_reco_all = df.Histo1D(("h_mH_reco_all", "Higgs mass from all reco jets;M_H (all reco jets);Events", 100, 0, 250), "inv_mass_reco_all")
+    h_mH_reco = df.Histo1D(("h_mH_reco", "Higgs mass from reco jets;M_H (reco jets);Events", 500, 0, 250), "inv_mass_reco")
+    h_mH_gen = df.Histo1D(("h_mH_gen", "Higgs mass from gen jets;M_H (gen jets);Events", 500, 0, 250), "inv_mass_gen")
+    h_mH_reco_core = df.Histo1D(("h_mH_reco_core", "Higgs mass from reco jets;M_H (reco jets);Events", 300, 75, 150), "inv_mass_reco")
+    h_mH_gen_core = df.Histo1D(("h_mH_gen_core", "Higgs mass from gen jets;M_H (gen jets);Events", 300, 75, 150), "inv_mass_gen")
+    h_mH_gen_all = df.Histo1D(("h_mH_gen_all", "Higgs mass from all gen jets;M_H (all gen jets);Events", 500, 0, 250), "inv_mass_gen_all")
+    h_mH_reco_all = df.Histo1D(("h_mH_reco_all", "Higgs mass from all reco jets;M_H (all reco jets);Events", 500, 0, 250), "inv_mass_reco_all")
     results = results + [h_mH_reco, h_mH_gen, h_mH_gen_all, h_mH_reco_all, h_mH_all_stable_part, h_Ejet, h_Egenjet,
                          hist_calo_hist_E, h_mH_reco_core, h_mH_gen_core]
-
     #### More mass histograms: for inv_mass_stable_gt_particles_from_higgs, inv_mass_reco_particles_matched_from_higgs, inv_mass_MC_part
-    h_mH_stable_gt_particles = df.Histo1D(("h_mH_stable_gt_particles", "Higgs mass from stable gt particles;M_H (stable gt particles);Events", 100, 0, 250), "inv_mass_stable_gt_particles_from_higgs")
-    h_mH_reco_particles_matched = df.Histo1D(("h_mH_reco_particles_matched", "Higgs mass from reco particles matched;M_H (reco particles matched);Events", 100, 0, 250), "inv_mass_reco_particles_matched_from_higgs")
-    h_mH_MC_part = df.Histo1D(("h_mH_MC_part", "Higgs mass from initial MC part.;M_H (MC part);Events", 100, 0, 250), "inv_mass_MC_part")
+    h_mH_stable_gt_particles = df.Histo1D(("h_mH_stable_gt_particles", "Higgs mass from stable gt particles;M_H (stable gt particles);Events", 500, 0, 250), "inv_mass_stable_gt_particles_from_higgs")
+    h_mH_reco_particles_matched = df.Histo1D(("h_mH_reco_particles_matched", "Higgs mass from reco particles matched;M_H (reco particles matched);Events", 500, 0, 250), "inv_mass_reco_particles_matched_from_higgs")
+    h_mH_MC_part = df.Histo1D(("h_mH_MC_part", "Higgs mass from initial MC part.;M_H (MC part);Events", 500, 0, 250), "inv_mass_MC_part")
     results = results + [h_mH_stable_gt_particles, h_mH_reco_particles_matched, h_mH_MC_part]
 
     return results + histograms + [h_eta, h_eta_gen], weightsum

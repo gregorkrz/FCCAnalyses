@@ -42,6 +42,7 @@ namespace FCCAnalyses { namespace Utils {
     vector<float> phi;
     vector<float> pt;
     vector<int> pdg;
+    vector<float> mass;
     for(auto & p : rp) {
         TLorentzVector p_lv;
         p_lv.SetXYZM(p.momentum.x, p.momentum.y, p.momentum.z, p.mass);
@@ -49,8 +50,9 @@ namespace FCCAnalyses { namespace Utils {
         phi.push_back(p_lv.Phi());
         pt.push_back(p_lv.Pt());
         pdg.push_back(p.PDG);
+        mass.push_back(p.mass);
     }
-    return tuple(eta, phi, pt, pdg);
+    return tuple(eta, phi, pt, pdg, mass);
     }
 
     vector<float> rvec_to_vector(ROOT::VecOps::RVec<float> in) {

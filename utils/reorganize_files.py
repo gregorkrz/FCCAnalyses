@@ -2,20 +2,27 @@ import os
 import shutil
 
 # Example dictionary mapping folder names to new names
-folder_map = {
-    #"GenJetDurhamFastJet_ISR": "Durham",
-    #"GenJetDurhamFastJet_ISR_AK": "AK4",
-    #"GenJetDurhamFastJet_ISR_AK10": "AK10",
-    #"GenJetDurhamFastJet_ISR_AK14": "AK14",
-    #"GenJetDurhamFastJet_ISR_AK6": "AK6",
 
-    "GenJetDurhamFastJet_NoISR": "Durham",
-    "GenJetDurhamFastJet_NoISR_AK": "AK4",
-    "GenJetDurhamFastJet_NoISR_AK10": "AK10",
-    "GenJetDurhamFastJet_NoISR_AK14": "AK14",
-    "GenJetDurhamFastJet_NoISR_AK6": "AK6"
+#### FOR AK
+folder_map = {
+    "GenJetDurhamFastJet_ISR": "Durham",
+    "GenJetDurhamFastJet_ISR_AK": "AK4",
+    "GenJetDurhamFastJet_ISR_AK10": "AK10",
+    "GenJetDurhamFastJet_ISR_AK14": "AK14",
+    "GenJetDurhamFastJet_ISR_AK6": "AK6",
+
+    #"GenJetDurhamFastJet_NoISR": "Durham",
+    #"GenJetDurhamFastJet_NoISR_AK": "AK4",
+    #"GenJetDurhamFastJet_NoISR_AK10": "AK10",
+    #"GenJetDurhamFastJet_NoISR_AK14": "AK14",
+    #"GenJetDurhamFastJet_NoISR_AK6": "AK6"
+
 }
 
+folder_map = {
+    "CaloJetDurham_ISR": "CaloJets_Durham",
+    "PFDurham_ISR": "PFJets_Durham"
+}
 
 # GenJetDurhamFastJet_ISR     GenJetDurhamFastJet_ISR_AK10  GenJetDurhamFastJet_ISR_AK6  GenJetDurhamFastJet_NoISR_AK
 # GenJetDurhamFastJet_NoISR_AK14  GenJetDurhamFastJet_NoISR_AK8
@@ -25,7 +32,7 @@ folder_map = {
 
 # Base directory (optional, use '.' if script is in the same place)
 base_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240"
-target_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240_AK_organized_NoISR"
+target_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240/CaloVsPF_reorganized"
 
 # Loop through each folder and its corresponding new name
 for folder_name, new_name in folder_map.items():
@@ -41,4 +48,3 @@ for folder_name, new_name in folder_map.items():
             dest_path = os.path.join(dest_dir, f"{new_name}.root")
             shutil.copy2(src_path, dest_path)
             print(f"Copied {src_path} → {dest_path}")
-

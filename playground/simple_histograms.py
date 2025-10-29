@@ -1,4 +1,3 @@
-
 # For each root file in the direct inputDir, open the root histogram and read the 'h_fancy' histogram. the legend entry should be the root file name. plot it on the same mpl canvas and please normalize it to 1!
 import os
 import ROOT
@@ -14,7 +13,7 @@ inputDir = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}".format(os.environ[
 root_files = [f for f in os.listdir(inputDir) if f.endswith(".root")]
 # remove "p8_ee_ZH_llbb_ecm365".root if it exists
 if "p8_ee_ZH_llbb_ecm365.root" in root_files:
-    root_files.remove("p8_ee_ZH_llbb_ecm365.root") # quick fix we dont need that file for now
+    root_files.remove("p8_ee_ZH_llbb_ecm365.root") # Quick fix we dont need that file for now
 
 plt.figure(figsize=(8, 6))
 for fname in root_files:
@@ -96,20 +95,21 @@ for fname in root_files:
 plt.xlabel("Gen Jet Energy [GeV]")
 plt.ylabel("Matching Efficiency (Matched / All)")
 plt.ylim([0.95, 1.02])
-plt.title("Gen Jet Matching Efficiency vs Energy")
+plt.title("Gen Jet Matching Efficiency vs. Energy")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/matching_efficiency_vs_energy.pdf".format(os.environ["FOLDER_NAME"]))
 plt.clf()
 
-
-
 ## Produce the Higgs mass plots similar to the ones in the fccanalysis plots file but easier to manipulate
-fig, ax = plt.subplots(figsize=(6, 6))
+
+fig, ax = plt.subplots(len(root_files), 2,  figsize=(8, 2.7 * len(root_files)))
+figlog, axlog = plt.subplots(len(root_files), 2, figsize=(8, 2.7 * len(root_files)))
+
 # Higgs mass histogram
 
-for fname in root_files:
+for i, fname in enumerate(root_files):
     file_path = os.path.join(inputDir, fname)
     f = ROOT.TFile.Open(file_path)
     if not f or f.IsZombie():
@@ -117,6 +117,8 @@ for fname in root_files:
         continue
     hist_gen = f.Get("h_mH_gen")
     hist_reco = f.Get("h_mH_reco")
+    hist_gt = f.Get("h_mH_stable_gt_particles") # for the resolution with ideal clustering
+    hist_gt_recomatched = f.Get("h_mH_reco_particles_matched")
     if not hist_gen or not hist_reco:
         print(f"No 'h_mH_gen'/'h_mH_reco' histogram in {fname}")
         f.Close()
@@ -124,27 +126,79 @@ for fname in root_files:
     n_bins = hist_gen.GetNbinsX()
     x_vals_gen = np.array([hist_gen.GetBinCenter(i) for i in range(1, n_bins + 1)])
     y_vals_gen = np.array([hist_gen.GetBinContent(i) for i in range(1, n_bins + 1)])
+
+    nbins_gt = hist_gt.GetNbinsX()
+    x_vals_gt = np.array([hist_gt.GetBinCenter(i) for i in range(1, nbins_gt + 1)])
+    y_vals_gt = np.array([hist_gt.GetBinContent(i) for i in range(1, nbins_gt + 1)])
+
+    nbins_gt_reco_matched = hist_gt_recomatched.GetNbinsX()
+    x_vals_gt_recomatched = np.array([hist_gt_recomatched.GetBinCenter(i) for i in range(1, nbins_gt_reco_matched + 1)])
+    y_vals_gt_recomatched = np.array([hist_gt_recomatched.GetBinContent(i) for i in range(1, nbins_gt_reco_matched + 1)])
+    step_size_gt_recomatched = x_vals_gt_recomatched[1] - x_vals_gt_recomatched[0]
+    integral_gt_recomatched = np.sum(y_vals_gt_recomatched)
+    print("Integral of reco-GT matched histogram in {}: {}".format(fname, integral_gt_recomatched))
+    if integral_gt_recomatched > 0:
+        y_vals_gt_recomatched = y_vals_gt_recomatched / integral_gt_recomatched / step_size_gt_recomatched
+    else:
+        print(f"Warning: {fname} reco-GT matched histogram integral = 0")
     # Normalize
     integral = np.sum(y_vals_gen)
+    step_size_gen = x_vals_gen[1] - x_vals_gen[0]
     print("Integral of histogram in {}: {}".format(fname, integral))
     if integral > 0:
-        y_vals = y_vals_gen / integral
+        y_vals_gen = y_vals_gen / integral / step_size_gen
     else:
         print(f"Warning: {fname} histogram integral = 0")
+
+    print("Sum of y vals now", np.sum(y_vals_gen))
+    integral_gt = np.sum(y_vals_gt)
+    step_size_gt = x_vals_gt[1] - x_vals_gt[0]
+    print("Integral of GT histogram in {}: {}".format(fname, integral_gt))
+    if integral_gt > 0:
+        y_vals_gt = y_vals_gt / integral_gt / step_size_gt
+    else:
+        print(f"Warning: {fname} GT histogram integral = 0")
     # Plot
     label = os.path.splitext(fname)[0]
-    # plot the histograms with bins for reco (full lines) and gen(dashed lines)
+    # Plot the histograms with bins for reco (full lines) and gen(dashed lines)
     n_bins = hist_reco.GetNbinsX()
     x_vals_reco = np.array([hist_reco.GetBinCenter(i) for i in range(1, n_bins + 1)])
     y_vals_reco = np.array([hist_reco.GetBinContent(i) for i in range(1, n_bins + 1)])
     integral_reco = np.sum(y_vals_reco)
+    step_size_reco = x_vals_reco[1] - x_vals_reco[0]
     print("Integral of histogram in {}: {}".format(fname, integral_reco))
     if integral_reco > 0:
         y_vals_reco = y_vals_reco / integral_reco
+        y_vals_reco = y_vals_reco / step_size_reco  # Normalize to bin width
     else:
         print(f"Warning: {fname} histogram integral = 0")
-    ax.plot(x_vals_reco, y_vals_reco, label=label + " (reco)", linestyle='solid')
-    ax.plot(x_vals_gen, y_vals_gen, label=label + " (gen)", linestyle='dashed')
-p = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/higgs_mass_reco_vs_gen.pdf".format(os.environ["FOLDER_NAME"])
+    #ax.plot(x_vals_reco, y_vals_reco, label=label + " (reco)", linestyle='solid')
+    #ax.plot(x_vals_gen, y_vals_gen, label=label + " (gen)", linestyle='dashed')
+    for k in range(2):
+        ax[i, k].step(x_vals_reco, y_vals_reco, where='mid', color="blue", label="reco")
+        ax[i, k].step(x_vals_gen, y_vals_gen, where='mid', color="orange", label="gen")
+        #ax[i].step(x_vals_gt, y_vals_gt, where='mid', color="green", label="GT", linestyle='dotted')
+        axlog[i, k].step(x_vals_reco, y_vals_reco, where='mid', color="blue", label="reco")
+        axlog[i, k].step(x_vals_gen, y_vals_gen, where='mid', color="orange", label="gen")
+        axlog[i, k].step(x_vals_gt, y_vals_gt, where='mid', color="green", label="GT")
+        axlog[i, k].step(x_vals_gt_recomatched, y_vals_gt_recomatched, where='mid', color="red", label="reco-GT matched")
+        axlog[i, k].legend()
+        ax[i, k].legend()
+        axlog[i, k].set_title(label)
+        axlog[i, k].set_yscale("log")
+        ax[i, k].set_title(label)
+    ax[i, 1].set_xlim([115, 135])
+    axlog[i, 1].set_xlim([115, 135])
+#ax.legend()
+#ax.set_yscale("log")
+
+
+p = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/Higgs_mass_reco_vs_gen.pdf".format(os.environ["FOLDER_NAME"])
+plog = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/log_Higgs_mass_reco_vs_gen.pdf".format(os.environ["FOLDER_NAME"])
+
+fig.tight_layout()
 fig.savefig(p)
+figlog.tight_layout()
+figlog.savefig(plog)
+
 print("saving to", p)

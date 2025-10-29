@@ -1,4 +1,9 @@
-# fccanalysis plots plots_jetE_alljets_Compare_AK.py
+# Use this script to run comparison of different algorithms but the same physics process.
+# Move the files around using utils/reorganize_files.py first to create the right folder structure.
+
+# FOLDER_NAME= HISTOGRAMS_FOLDER_NAME= fccanalysis plots plots_jetE_alljets_Compare_AK.py
+
+
 import ROOT
 import os
 
@@ -12,10 +17,8 @@ assert "FOLDER_NAME" in os.environ
 assert "HISTOGRAMS_FOLDER_NAME" in os.environ # default: Histograms_ECM240_AK_organized_NoISR
 
 
-
 intLumi        = 1.
 intLumiLabel   = ""
-#ana_tex        = 'All matched jets using deltaR matching'
 ana_tex = os.environ["FOLDER_NAME"]
 delphesVersion = '3.4.2'
 energy         = 240.0
@@ -29,6 +32,7 @@ plotStatUnc    = True
 
 colors = {}
 color_presets = [ROOT.kRed, ROOT.kBlue+1, ROOT.kCyan+2, ROOT.kMagenta, ROOT.kOrange+7, ROOT.kGray+1]
+
 procs = {"signal": {}, "backgrounds": {}}
 
 legend = {}
@@ -42,6 +46,8 @@ for file in sorted(os.listdir(inputDir)):
         legend[proc_name] = proc_name
         colors[proc_name] = color_presets[i]
         i += 1
+
+print("Procs:", procs, "Legend:", legend)
 
 hists = {}
 
@@ -173,3 +179,120 @@ hists["h_mH_gen"] = {
     "ytitle": "Events",
 }
 
+
+
+hists["h_njets"] = {
+    "output":   "h_njets",
+    "logy":     False,
+    "stack":    False,
+    #"rebin":    100,
+    #"xmin":     120,
+    #"xmax":     140,
+    ##"ymin":     0,
+    "xtitle":   "Number of reco jets",
+    "ytitle":   "Events",
+}
+
+hists["h_ngenjets"] = {
+    "output":   "h_ngenjets",
+    "logy":     False,
+    "stack":    False,
+    #"rebin":    100,
+    #"xmin":     120,
+    #"xmax":     140,
+    ##"ymin":     0,
+    "xtitle":   "Number of gen jets",
+    "ytitle":   "Events",
+}
+
+hists["h_mH_gen_all"] = {
+    "output": "h_mH_gen_all",
+    "logy": False,
+    "stack": False,
+    "xtitle": " Higgs mass from gen particles (all gen jets)",
+    "ytitle": "Events",
+
+}
+
+hists["h_mH_reco_all"] = {
+    "output": "h_mH_reco_all",
+    "logy": False,
+    "stack": False,
+    "xtitle": "Reconstructed Higgs mass (all reco jets)",
+    "ytitle": "Events",
+}
+
+hists["h_mH_all_stable_part"] = {
+    "output": "h_mH_all_stable_part",
+    "logy": False,
+    "stack": False,
+    "xtitle": "invariant mass of all particles",
+    "ytitle": "Events"
+}
+
+hists["h_E_all_reco_jets"] = {
+    "output": "h_E_all_reco_jets",
+    "logy": False,
+    "stack": False,
+    "xtitle": "reco jet E",
+    "ytitle": "Events"
+
+}
+
+hists["h_E_all_gen_jets"] = {
+    "output": "h_E_all_genjets",
+    "logy": False,
+    "stack": False,
+    "xtitle": "gen jet E",
+    "ytitle": "Events"
+}
+'''
+hists["h_calo_hit_energy"] = {
+    "output": "h_calo_hit_energy",
+    "logy": False,
+    "stack": False,
+    "xtitle": "Calo hit energy",
+    "ytitle": "Hits"
+}
+'''
+hists["h_mH_reco_core"] = {
+    "output": "h_mH_reco_core",
+    "logy": True,
+    "stack": False,
+    #"ymax": 150000,
+    "xtitle": "mH (reco) [GeV]",
+    "ytitle": "Events",
+}
+
+hists["h_mH_gen_core"] = {
+    "output": "h_mH_gen_core",
+    "logy": True,
+    "stack": False,
+    #"ymax": 150000, # Can I set this to auto?
+    "xtitle": "mH (gen) [GeV]",
+    "ytitle": "Events",
+}
+
+hists["h_mH_stable_gt_particles"] = {
+    "output": "h_mH_stable_gt_particles",
+    "logy": True,
+    "stack": False,
+    "xtitle": "Higgs mass from stable GT particles",
+    "ytitle": "Events"
+}
+
+hists["h_mH_reco_particles_matched"] = {
+    "output": "h_mH_reco_particles_matched",
+    "logy": True,
+    "stack": False,
+    "xtitle": "Higgs mass from reco particles matched from Higgs",
+    "ytitle": "Events"
+}
+
+hists["h_mH_MC_part"] =  {
+    "output": "h_mH_MC_part",
+    "logy": True,
+    "stack": False,
+    "xtitle": "Higgs mass from MC partons",
+    "ytitle": "Events"
+}

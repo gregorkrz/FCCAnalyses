@@ -290,7 +290,7 @@ hists["h_mH_gen_core"] = {
 
 hists["h_mH_stable_gt_particles"] = {
     "output": "h_mH_stable_gt_particles",
-    "logy": False,
+    "logy": True,
     "stack": False,
     "xtitle": "Higgs mass from stable GT particles",
     "ytitle": "Events"
@@ -298,16 +298,15 @@ hists["h_mH_stable_gt_particles"] = {
 
 hists["h_mH_reco_particles_matched"] = {
     "output": "h_mH_reco_particles_matched",
-    "logy": False,
+    "logy": True,
     "stack": False,
     "xtitle": "Higgs mass from reco particles matched from Higgs",
     "ytitle": "Events"
 }
 
-
 hists["h_mH_MC_part"] =  {
     "output": "h_mH_MC_part",
-    "logy": False,
+    "logy": True,
     "stack": False,
     "xtitle": "Higgs mass from MC partons",
     "ytitle": "Events"

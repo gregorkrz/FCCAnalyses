@@ -1,0 +1,28 @@
+source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
+set -e
+
+export FOLDER_NAME=CaloVsPF_reorganized/p8_ee_ZH_6jet_ecm240
+export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240
+fccanalysis plots plots_jetE_alljets_Compare_AK.py
+
+export FOLDER_NAME=CaloVsPF_reorganized/p8_ee_ZH_qqbb_ecm240
+export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240
+fccanalysis plots plots_jetE_alljets_Compare_AK.py
+
+export FOLDER_NAME=CaloVsPF_reorganized/p8_ee_ZH_vvgg_ecm240
+export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240
+fccanalysis plots plots_jetE_alljets_Compare_AK.py
+
+export FOLDER_NAME=CaloVsPF_reorganized/p8_ee_ZH_bbbb_ecm240
+export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240
+fccanalysis plots plots_jetE_alljets_Compare_AK.py
+
+export FOLDER_NAME=CaloVsPF_reorganized/p8_ee_ZH_vvbb_ecm240
+export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240
+fccanalysis plots plots_jetE_alljets_Compare_AK.py
+
+export FOLDER_NAME=CaloVsPF_reorganized/p8_ee_ZH_vvqq_ecm240
+export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240
+fccanalysis plots plots_jetE_alljets_Compare_AK.py
+
+
