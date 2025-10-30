@@ -51,7 +51,7 @@ for file in os.listdir(args.folder):
 
 ########################################################################################################
 
-binsE = [0, 50, 75, 100]
+binsE = [0, 25, 50, 75, 100]
 bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
 
 def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"):
@@ -89,7 +89,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
                         width = wx
         if low == 0.2 and high == 1.0:
             # Didn't fit well, try mean and stdev
-            # compute the stdev from the histogram
+            # Compute the stdev from the histogram
             std68 = 0.0
             #print(theHist)
             print("Fitting didnt work")
@@ -225,26 +225,29 @@ fig.tight_layout()
 fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison.pdf".format(histograms_folder, args.output))
 
 
-fig, ax = plt.subplots(2, 1, figsize=(8, 6))
-for process in sorted(list(processList.keys())):
-    bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _ = get_result_for_process(process, bins=bins_eta, suffix="eta_")
-    fig_histograms.tight_layout()
-    fig_histograms.savefig(
-        "../../idea_fullsim/fast_sim/{}/{}/bins_eta_{}.pdf".format(histograms_folder, args.output, process)
-    )
-    ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
-    ax[1].plot(bin_mid_points, resp, ".--", label=process)
 
-
-ax[0].legend()
-ax[0].set_xlabel('Jet Eta [GeV]')
-ax[0].set_ylabel(r'$\sigma_E / E$')
-ax[0].set_title('Jet Energy Resolution vs Jet Energy')
-ax[0].grid(True, alpha=0.3)
-ax[1].grid(True, alpha=0.3)
-ax[1].set_title("Energy Response vs Energy")
-ax[1].set_xlabel('Jet Eta [GeV]')
-ax[1].set_ylabel("$\sigma_E / E$")
-fig.tight_layout()
-fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_Eta_resolution_data_points.pdf".format(histograms_folder, args.output))
+for method in ["std68", "RMS", "interquantile_range"]:
+    fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+    for process in sorted(list(processList.keys())):
+        bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _ = get_result_for_process(process, bins=bins_eta,
+                                                                                         suffix="eta_",
+                                                                                         sigma_method=method)
+        if method == "std68":
+            fig_histograms.tight_layout()
+            fig_histograms.savefig(
+            "../../idea_fullsim/fast_sim/{}/{}/bins_eta_{}.pdf".format(histograms_folder, args.output, process)
+            )
+        ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
+        ax[1].plot(bin_mid_points, resp, ".--", label=process)
+    ax[0].legend()
+    ax[0].set_xlabel('Jet Eta [GeV]')
+    ax[0].set_ylabel(r'$\sigma_E / E$')
+    ax[0].set_title('Jet Energy Resolution vs Jet Energy')
+    ax[0].grid(True, alpha=0.3)
+    ax[1].grid(True, alpha=0.3)
+    ax[1].set_title("Energy Response vs Energy")
+    ax[1].set_xlabel('Jet Eta [GeV]')
+    ax[1].set_ylabel("$\sigma_E / E$")
+    fig.tight_layout()
+    fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_Eta_resolution_data_points_{}.pdf".format(histograms_folder, args.output, method))
 

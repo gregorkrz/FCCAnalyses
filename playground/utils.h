@@ -36,7 +36,7 @@ namespace FCCAnalyses { namespace Utils {
         }
         return rp;
     }
-    tuple<vector<float>, vector<float>, vector<float>, vector<int>> serialize_event(Vec_rp rp) {
+    tuple<vector<float>, vector<float>, vector<float>, vector<int>, vector<float>> serialize_event(Vec_rp rp) {
     // return tuple of eta, phi, pt
     vector<float> eta;
     vector<float> phi;

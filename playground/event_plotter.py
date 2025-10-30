@@ -56,6 +56,7 @@ includePaths = ["functions.h", "utils.h"]
 
 
 '''
+
 PLOT IDX options:
 
 1: the slice of the E_reco/E_true around 0.9
@@ -66,7 +67,7 @@ PLOT IDX options:
 
 '''
 
-PLOT_IDX = 5
+PLOT_IDX = 4
 
 gf = "GenJetDurhamN4"
 rf = "JetDurhamN4"
@@ -92,7 +93,7 @@ def plot_filter(E_reco_over_true, n_unmatched, inv_mass_gen_all, inv_mass_Higgs,
         else:
             return False
     if idx == 4:
-        if (inv_mass_gen_all > 123.0) and (inv_mass_gen_all < 127.0):
+        if (inv_mass_Higgs > 123.0) and (inv_mass_Higgs < 127.0):
             return True
         else:
             return False
@@ -104,12 +105,11 @@ def plot_filter(E_reco_over_true, n_unmatched, inv_mass_gen_all, inv_mass_Higgs,
                 return True
     return False
 
-
 def build_graph(df, dataset):
     global global_event_idx # is this thread-safe??
     df = df.Define("weight", "1.0")
     weightsum = df.Sum("weight")
-    df = df.Define("MC_quark_index", "FCCAnalyses::ZHfunctions::get_MC_quark_index(Particle);")
+    df = df.Define("MC_quark_index", "FCCAnalyses::ZHfunctions::get_MC_quark_index_for_Higgs(Particle, _Particle_daughters.index, false);")
     df = df.Define("GT_jets", "FCCAnalyses::ZHfunctions::get_GT_jets_from_initial_particles(Particle, MC_quark_index);")
     df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(JetDurhamN4)")
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetDurhamN4)")
@@ -156,6 +156,7 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_jets_eta", "std::get<0>(_serialized_jets);")
     df = df.Define("_serialized_jets_phi", "std::get<1>(_serialized_jets);")
     df = df.Define("_serialized_jets_pt", "std::get<2>(_serialized_jets);")
+    df = df.Define("_serialized_jets_m", "std::get<4>(_serialized_jets);")
     df = df.Define("_serialized_initial_partons", "FCCAnalyses::Utils::serialize_event(GT_jets);")
     df = df.Define("_serialized_initial_partons_eta", "std::get<0>(_serialized_initial_partons);")
     df = df.Define("_serialized_initial_partons_phi", "std::get<1>(_serialized_initial_partons);")
@@ -182,12 +183,13 @@ def build_graph(df, dataset):
                           "_serialized_initial_partons_phi", "_serialized_initial_partons_pt", "_serialized_genjets_eta",
                           "_serialized_genjets_phi", "_serialized_genjets_pt", "_serialized_evt_gen_eta",
                           "_serialized_evt_gen_phi", "_serialized_evt_gen_pt", "MCparts_eta", "MCparts_phi", "MCparts_pt",
-                          "_serialized_evt_gen_PDG", "_calohits_eta", "_calohits_phi", "_calohits_pt"])
+                          "_serialized_evt_gen_PDG", "_calohits_eta", "_calohits_phi", "_calohits_pt", "_serialized_jets_m"])
 
     tonumpy = {key: list([list(x) for x in tonumpy[key]]) for key in tonumpy}
     inv_mass_gen_all = list(df.AsNumpy(["inv_mass_gen_all"])["inv_mass_gen_all"])
     inv_mass_all_gen_p = list(df.AsNumpy(["inv_mass_all_gen_particles"])["inv_mass_all_gen_particles"])
     inv_mass_reco_higgs = list(df.AsNumpy(["inv_mass_reco"])["inv_mass_reco"])
+    inv_mass_gen_higgs = list(df.AsNumpy(["inv_mass_gen"])["inv_mass_gen"])
     gen_jets_inv_mass = []
     gen_p_inv_mass = []
     for event_idx in range(len(l)):
@@ -229,8 +231,9 @@ def build_graph(df, dataset):
             etamc, phimc, ptmc = tonumpy["_serialized_evt_gen_eta"][event_idx], tonumpy["_serialized_evt_gen_phi"][event_idx], tonumpy["_serialized_evt_gen_pt"][event_idx]
             vec_mc = Vec_RP(eta=etamc, phi=phimc, pt=ptmc)#, txt=[str(pdg) for pdg in tonumpy["_serialized_evt_gen_PDG"][event_idx]])
             jets_eta, jets_phi, jets_pt = tonumpy["_serialized_jets_eta"][event_idx], tonumpy["_serialized_jets_phi"][event_idx], tonumpy["_serialized_jets_pt"][event_idx]
-            jets_text = l[event_idx]
-            jets_text = [f"pt={round(jets_pt[i], 2)}e={round(jets_eta[i], 2)}ph={round(jets_phi[i], 2)}" for i in range(len(jets_eta))]
+            jets_m = tonumpy["_serialized_jets_m"][event_idx]
+            #jets_text = l[event_idx]
+            jets_text = [f"pt={round(jets_pt[i], 2)}e={round(jets_eta[i], 2)}ph={round(jets_phi[i], 2)}m={round(jets_m[i], 2)}" for i in range(len(jets_eta))]
             vec_jets = Vec_RP(eta=jets_eta, phi=jets_phi, pt=jets_pt, txt=jets_text)
             gt_eta, gt_phi, gt_pt = tonumpy["_serialized_initial_partons_eta"][event_idx], tonumpy["_serialized_initial_partons_phi"][event_idx], tonumpy["_serialized_initial_partons_pt"][event_idx]
             vec_gt = Vec_RP(eta=gt_eta, phi=gt_phi, pt=gt_pt)
@@ -252,7 +255,7 @@ def build_graph(df, dataset):
                 "Status1GenParticles": vec_mc, "CaloHits": vec_calohits} #"GenJetsFCCAnalysis": vec_genjets_fccanalysis}
             )
             fig, ax = event.display()
-            ax[0].set_title("{}, event {}, len(in.part.)={}, mHreco={}".format(dataset, global_event_idx.get(dataset, 0), len(mcpart_eta), round(inv_mass_reco_higgs[event_idx], 2)))
+            ax[0].set_title("{}, event {}, len(in.part.)={}, mHreco={} mHgen={}".format(dataset, global_event_idx.get(dataset, 0), len(mcpart_eta), round(inv_mass_reco_higgs[event_idx], 2), round(inv_mass_gen_higgs[event_idx], 2)))
             fig.tight_layout()
             if not os.path.exists(outputDir):
                 os.makedirs(outputDir)
