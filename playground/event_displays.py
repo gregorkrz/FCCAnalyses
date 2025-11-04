@@ -31,12 +31,13 @@ class Event:
             for idx, a in enumerate(ax):
                 if idx == 2: continue
                 a.scatter(vec.eta, vec.phi, s=vec.pt, label=label + " L={}".format(len(vec.pt)), alpha=0.5, marker=self.special_symbols.get(label, "o"))
-        for key in ["RecoJets", "GenJets", "InitialPartons", "GenJetsFCCAnalysis"]:
+        for key in ["RecoJets", "GenJets", "InitialPartons", "GenJetsFCCAnalysis", "CaloJets"]:
             markers = {
                 "RecoJets": "*",
                 "GenJets": "D",
                 "InitialPartons": "X",
-                "GenJetsFCCAnalysis": "P"
+                "GenJetsFCCAnalysis": "P",
+                "CaloJets": "H"
             }
             if key in self.additional_collections:
                 if key in self.additional_collections:

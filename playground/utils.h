@@ -20,8 +20,6 @@
 
 
 namespace FCCAnalyses { namespace Utils {
-
-
     Vec_rp convert_calohits_to_vec_rp(const ROOT::VecOps::RVec<edm4hep::CalorimeterHitData> & calohits) {
         Vec_rp rp;
         for(auto & hit : calohits) {
@@ -36,23 +34,25 @@ namespace FCCAnalyses { namespace Utils {
         }
         return rp;
     }
-    tuple<vector<float>, vector<float>, vector<float>, vector<int>, vector<float>> serialize_event(Vec_rp rp) {
-    // return tuple of eta, phi, pt
-    vector<float> eta;
-    vector<float> phi;
-    vector<float> pt;
-    vector<int> pdg;
-    vector<float> mass;
-    for(auto & p : rp) {
-        TLorentzVector p_lv;
-        p_lv.SetXYZM(p.momentum.x, p.momentum.y, p.momentum.z, p.mass);
-        eta.push_back(p_lv.Eta()); // Multiplied by 100 to convert
-        phi.push_back(p_lv.Phi());
-        pt.push_back(p_lv.Pt());
-        pdg.push_back(p.PDG);
-        mass.push_back(p.mass);
-    }
-    return tuple(eta, phi, pt, pdg, mass);
+    tuple<vector<float>, vector<float>, vector<float>, vector<int>, vector<float>, vector<float>> serialize_event(Vec_rp rp) {
+        // Return tuple of eta, phi, pt //
+        vector<float> eta;
+        vector<float> phi;
+        vector<float> pt;
+        vector<int> pdg;
+        vector<float> mass;
+        vector<float> energy;
+        for(auto & p : rp) {
+            TLorentzVector p_lv;
+            p_lv.SetXYZM(p.momentum.x, p.momentum.y, p.momentum.z, p.mass);
+            eta.push_back(p_lv.Eta());
+            phi.push_back(p_lv.Phi());
+            pt.push_back(p_lv.Pt());
+            pdg.push_back(p.PDG);
+            mass.push_back(p.mass);
+            energy.push_back(p.energy);
+        }
+        return tuple(eta, phi, pt, pdg, mass, energy);
     }
 
     vector<float> rvec_to_vector(ROOT::VecOps::RVec<float> in) {

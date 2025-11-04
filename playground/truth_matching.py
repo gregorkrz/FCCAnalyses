@@ -1,8 +1,7 @@
 
-def get_Higgs_mass_with_truth_matching(df, genjets_field="GenJetDurhamN4", recojets_field="JetDurhamN4"):
-    #df = df.Define("MC_quark_idx", "FCCAnalyses::ZHfunctions::get_MC_quark_index(Particle)")
-    df = df.Define("MC_part_idx", "FCCAnalyses::ZHfunctions::get_MC_quark_index_for_Higgs(Particle, _Particle_daughters.index, false)")
-    print("MC part. idx", df.AsNumpy(["MC_part_idx"])["MC_part_idx"])
+def get_Higgs_mass_with_truth_matching(df, genjets_field="GenJetDurhamN4", recojets_field="JetDurhamN4", define_mc_quark_idx=True):
+    if define_mc_quark_idx:
+        df = df.Define("MC_quark_idx", "FCCAnalyses::ZHfunctions::get_MC_quark_index(Particle)")
     df = df.Define("gt_labels", "FCCAnalyses::ZHfunctions::getGTLabels(MC_part_idx, Particle, _Particle_daughters.index);")
     # the nonzero indices of gt_labels should be filtered out
     df = df.Define("_gt_particles_from_higgs", "FCCAnalyses::ZHfunctions::select_gt_particles(gt_labels, Particle)")
@@ -16,6 +15,10 @@ def get_Higgs_mass_with_truth_matching(df, genjets_field="GenJetDurhamN4", recoj
     df = df.Define("inv_mass_reco_particles_matched_from_higgs", "FCCAnalyses::ZHfunctions::invariant_mass(reco_particles_matched_from_higgs)")
     #df = df.Define("MC_part_asjets", "FCCAnalyses::ZHfunctions::get_jets_from_recojetlabels(MC_part_idx, FCCAnalyses::ZHfunctions::vec_mc_to_rp(Particle))")
     df = df.Define("MC_part_asjets", "FCCAnalyses::ZHfunctions::select_rp( FCCAnalyses::ZHfunctions::vec_mc_to_rp(Particle), MC_part_idx)")
+    # Serialize the MC part as jets
+    df = df.Define("_ser_MCpart_asjets", "FCCAnalyses::Utils::serialize_event(MC_part_asjets)")
+    df = df.Define("_ser_MCpart_e", "std::get<5>(_ser_MCpart_asjets)")
+    print("MC part e", df.AsNumpy(["_ser_MCpart_e"])["_ser_MCpart_e"][:5])
     df = df.Define("inv_mass_MC_part", "FCCAnalyses::ZHfunctions::invariant_mass(MC_part_asjets)")
     #print("MC_part_asjets", df.AsNumpy(["MC_part_asjets"])["MC_part_asjets"])
     df = df.Define("HardP_to_GenJet_mapping", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(MC_part_asjets, {}, 1.0, false)".format(genjets_field))

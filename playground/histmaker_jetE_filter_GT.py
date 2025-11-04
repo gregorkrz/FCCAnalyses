@@ -1,8 +1,11 @@
+# This file filters the dataframe such that the weird events where WW don't decay don't contribute to the end results
+# (this was resulting in a weird delta function peak at zero for GT partons invariant mass)
 # export FOLDER_NAME=GenJetDurhamFastJet_NoISR
 # export INPUT_DIR=/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/22102025/ISR_ecm240 fccanalysis run histmaker_jetE.py
 # source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
 
 # List of processes (mandatory)
+
 from truth_matching import get_Higgs_mass_with_truth_matching
 from jet_helper import get_jet_vars
 import os
@@ -22,24 +25,24 @@ processList = {
     #'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
     ############## SINGLE HIGGS PROCESSES ######################
     # 6 jets
-    #"p8_ee_ZH_6jet_ecm240": {'fraction': frac},
+    "p8_ee_ZH_6jet_ecm240": {'fraction': frac},
     # 4 jets
-    #"p8_ee_ZH_qqbb_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_bbbb_ecm240": {'fraction': frac},
+    "p8_ee_ZH_qqbb_ecm240": {'fraction': frac},
+    "p8_ee_ZH_bbbb_ecm240": {'fraction': frac},
     # 2 jets
-    #"p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_vvqq_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_vvbb_ecm240": {'fraction': frac},
+    "p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
+    "p8_ee_ZH_vvqq_ecm240": {'fraction': frac},
+    "p8_ee_ZH_vvbb_ecm240": {'fraction': frac},
 
-    ############## 2 jets: other detectors study #################
-    "p8_ee_ZH_vvgg_ecm240_CEPC": {'fraction': frac},
-    "p8_ee_ZH_vvgg_ecm240_CLD":  {'fraction': frac},
-    "p8_ee_ZH_vvgg_ecm240_IDEA": {'fraction': frac},
-    #"p8_ee_ZH_vvqq_ecm240_CEPC": {'fraction': frac},
+    ##############2 jets: other detectors study #################
+    #"p8_ee_ZH_vvgg_ecm240_CEPC":  {'fraction': frac},
+    #"p8_ee_ZH_vvgg_ecm240_CLD":  {'fraction': frac},
+
+    #"p8_ee_ZH_vvqq_ecm240_CEPC":  {'fraction': frac},
     #"p8_ee_ZH_vvqq_ecm240_CLD":  {'fraction': frac},
-    #"p8_ee_ZH_vvbb_ecm240_CEPC": {'fraction': frac},
+    #"p8_ee_ZH_vvbb_ecm240_CEPC":  {'fraction': frac},
     #"p8_ee_ZH_vvbb_ecm240_CLD":  {'fraction': frac},
-    ###############################################################
+    #############################################################
 
     # 'wzp6_ee_mumuH_ecm240':{'fraction':1},
     #'p8_ee_WW_mumu_ecm240': {'fraction': 1, 'crossSection': 0.25792},
@@ -59,10 +62,7 @@ nJets_processList = {
     "p8_ee_ZH_vvqq_ecm240_CEPC": 2,
     "p8_ee_ZH_vvqq_ecm240_CLD": 2,
     "p8_ee_ZH_vvbb_ecm240_CEPC": 2,
-    "p8_ee_ZH_vvbb_ecm240_CLD": 2,
-    "p8_ee_ZH_vvbb_ecm240_IDEA": 2,
-    "p8_ee_ZH_vvgg_ecm240_IDEA": 2
-
+    "p8_ee_ZH_vvbb_ecm240_CLD": 2
 }
 
 nJets_from_H_process_list = {
@@ -78,7 +78,6 @@ nJets_from_H_process_list = {
     "p8_ee_ZH_vvqq_ecm240_CLD": 2,
     "p8_ee_ZH_vvbb_ecm240_CEPC": 2,
     "p8_ee_ZH_vvbb_ecm240_CLD": 2,
-    "p8_ee_ZH_vvbb_ecm240_IDEA": 2
 
 }
 
@@ -141,14 +140,15 @@ def neg_format(number):
         return point_format(number)
 
 # build_graph function that contains the analysis logic, cuts and histograms (mandatory)
-
 def build_graph(df, dataset):
     #results = []
     print("############## Doing dataset:", dataset, "##############")
     df = df.Define("MC_part_idx", "FCCAnalyses::ZHfunctions::get_MC_quark_index_for_Higgs(Particle, _Particle_daughters.index, false)")
-    print("MC part. idx", df.AsNumpy(["MC_part_idx"])["MC_part_idx"])
-    #print("Filtering df to remove the weird events with WW not decayed")
-    #df = df.Filter("MC_part_idx.size() == {}".format(nJets_from_H_process_list[dataset]))
+    mcpart_idx_display = df.AsNumpy(["MC_part_idx"])["MC_part_idx"]
+    print("MC part. idx", len(mcpart_idx_display), mcpart_idx_display[:5])
+    print("Filtering df , current size: ", len(mcpart_idx_display))
+    df = df.Filter("MC_part_idx.size() == {}".format(nJets_from_H_process_list[dataset]))
+    print("After filtering, len=", len(df.AsNumpy(["MC_part_idx"])["MC_part_idx"]))
     df = df.Define("weight", "1.0")
     weightsum = df.Sum("weight")
     df = df.Define("calo_hit_energy", "CalorimeterHits.energy")
@@ -198,7 +198,6 @@ def build_graph(df, dataset):
     df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances({})".format(RecoJetVariable))
     df = df.Define("min_distance_between_genjets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances({}))".format(format(GenJetVariable)))
     df = df.Define("min_distance_between_recojets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances({}))".format(RecoJetVariable))
-
     # Will be different for each process with e+e- kt algorithm
     hist_njets = df.Histo1D(("h_njets", "Number of reconstructed jets;N_jets;Events", 10, 0, 10), "njets")
     hist_ngenjets = df.Histo1D(("h_ngenjets", "Number of generated jets;N_genjets;Events", 10, 0, 10), "ngenjets")
@@ -261,11 +260,7 @@ def build_graph(df, dataset):
     h_fancy1 = df.Histo1D(("h_fancy_E0", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 150, 0.4, 1.2), "ratio_jet_energies_fancy_E0")
     h_unmatched_reco_jets = df.Histo1D(("h_unmatched_reco_jets", "E of unmatched reco jets;E_reco;Events", 100, 0, 300), "E_of_unmatched_reco_jets")
     results = [h_fancy, h_fancy1, h_unmatched_reco_jets, hist_njets, hist_ngenjets, h_fancy_higheta] #+ h_mass
-    #for i in range(4):
-    #    #df = df.Define("jet_E{}".format(i), "ratio_jet_energies[{}]".format(i))
-    #    #h_E = df.Histo1D(("h_E{}".format(i), "E_reco/E_true;E_reco / E_true;Events", 50, 0.8, 1.2), "jet_E{}".format(i))
-    #    #results.append(h_E)
-    df = get_Higgs_mass_with_truth_matching(df, genjets_field=GenJetVariable, recojets_field=RecoJetVariable)
+    df = get_Higgs_mass_with_truth_matching(df, genjets_field=GenJetVariable, recojets_field=RecoJetVariable, define_mc_quark_idx=False)
     #print("MC part idx", df.AsNumpy(["MC_part_idx"])["MC_part_idx"][:5])
     ##################################################################################################################
     df = df.Define("matching_reco_with_partons", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, 1.0, false)".format(RecoJetVariable, "MC_part_asjets"))
@@ -274,13 +269,6 @@ def build_graph(df, dataset):
                    "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(matching_reco_with_partons, {}, {})".format(RecoJetVariable, "MC_part_asjets"))
     df = df.Define("ratio_jet_energies_matching_with_partons", "std::get<0>(matching_proc_with_partons)")
     df = df.Define("E_of_unmatched_reco_jets_with_partons", "std::get<1>(matching_proc_with_partons)")
-    df = df.Define("charged_particles", "FCCAnalyses::ZHfunctions::get_E_charged_reco_particles(ReconstructedParticles)")
-    df = df.Define("E_charged", "std::get<0>(charged_particles)")
-    df = df.Define("frac_E_charged", "std::get<1>(charged_particles)")
-    h_frac_E_charged = df.Histo1D(("h_frac_E_charged", "Fraction of charged energy in reco particles;E_charged / E_total;Events", 100, 0, 1), "frac_E_charged")
-    results.append(h_frac_E_charged)
-    h_E_charged = df.Histo1D(("h_E_charged", "Energy of charged reco particles;E_charged;Events", 100, 0, 250), "E_charged")
-    results.append(h_E_charged)
     print("ratio_jet_energies_matching_with_partons:", df.AsNumpy(["ratio_jet_energies_matching_with_partons"])["ratio_jet_energies_matching_with_partons"][:5])
     h_ratio_matching_with_partons = df.Histo1D(("h_ratio_matching_with_partons", "E_reco/E_parton;E_reco / E_parton;Events", 300, 0.5, 1.5), "ratio_jet_energies_matching_with_partons")
     df = df.Define("inv_mass_all_gen_particles", "FCCAnalyses::ZHfunctions::invariant_mass(stable_gen_particles);")

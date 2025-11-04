@@ -19,7 +19,9 @@ assert "HISTOGRAMS_FOLDER_NAME" in os.environ # default: Histograms_ECM240_AK_or
 
 intLumi        = 1.
 intLumiLabel   = ""
-ana_tex = os.environ["FOLDER_NAME"]
+#ana_tex = os.environ["FOLDER_NAME"]
+ana_tex = ""
+
 delphesVersion = '3.4.2'
 energy         = 240.0
 collider       = 'FCC-ee'
@@ -31,7 +33,7 @@ inputDir       = '../../idea_fullsim/fast_sim/{}/{}'.format(os.environ["HISTOGRA
 plotStatUnc    = True
 
 colors = {}
-color_presets = [ROOT.kRed, ROOT.kBlue+1, ROOT.kCyan+2, ROOT.kMagenta, ROOT.kOrange+7, ROOT.kGray+1]
+color_presets = [ROOT.kRed, ROOT.kBlue+1, ROOT.kCyan+2, ROOT.kMagenta, ROOT.kOrange+7, ROOT.kGray+1, ROOT.kGreen, ROOT.kOrange]
 
 procs = {"signal": {}, "backgrounds": {}}
 
@@ -165,9 +167,10 @@ hists["h_mH_reco"] = {
     "output": "h_mH_reco",
     "logy": False,
     "stack": False,
-    "ymax": 120000,
+    "ymax": 20000,
     "xtitle": "Reconstructed Higgs mass (all matched jets)",
     "ytitle": "Events",
+    # Normalize to 1
 }
 
 hists["h_mH_gen"] = {
@@ -259,7 +262,7 @@ hists["h_mH_reco_core"] = {
     "output": "h_mH_reco_core",
     "logy": True,
     "stack": False,
-    #"ymax": 150000,
+    "ymax": 1e4,
     "xtitle": "mH (reco) [GeV]",
     "ytitle": "Events",
 }
@@ -296,3 +299,19 @@ hists["h_mH_MC_part"] =  {
     "xtitle": "Higgs mass from MC partons",
     "ytitle": "Events"
 }
+
+
+hists["h_frac_E_charged"] = {
+    "output": "h_frac_E_charged",
+    "logy": False,
+    "xtitle": "Fraction of reco. E in event by charged",
+    "ytitle": "Events"
+}
+
+hists["h_E_charged"] = {
+    "output": "h_E_charged",
+    "logy": False,
+    "xtitle": "Fraction of E charged",
+    "ytitle": "Events"
+}
+

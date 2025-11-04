@@ -201,9 +201,8 @@ std::vector<int> get_list_of_end_decay_products_recursive(int i,
     return res;
 }
 
-
 vector<int> get_MC_quark_index_for_Higgs(Vec_mc mc, const ROOT::VecOps::RVec<int>& ind, bool debug = false) {
-    // Get the quark indices, but only for the ones that are direct descendants of the Higgs
+    // Get the initial quark indices, but only for the ones that are direct descendants of the Higgs
     std::vector<int> quark_indices;
     for(size_t i = 0; i < mc.size(); ++i) {
         auto & p = mc[i];
@@ -240,35 +239,65 @@ vector<int> get_MC_quark_index_for_Higgs(Vec_mc mc, const ROOT::VecOps::RVec<int
                         if (((abs(wd.PDG) <= 5) || (wd.PDG == 21)) && wd.generatorStatus == 23) {  // Quarks only (direct products of the hard interaction)
                             quark_indices.push_back(wd_idx);
                         }
+                        // If it's a W-+ with status 51, do another hop
+                        if ((abs(wd.PDG) == 24) && (wd.generatorStatus == 51)) {
+                            if (debug) {
+                                rdfVerbose << "    Found W with status 51 at index " << wd_idx << ", checking its daughters." << endl;
+                            }
+                            vector<int> ww_daughters = get_list_of_direct_particles_from_decay(wd_idx, mc, ind);
+                            for(auto & wwd_idx : ww_daughters) { // A bit annoying way to get quarks, should do a recursion maybe in a rewrite, but i think it captures all weird cases.
+                                auto & wwd = mc[wwd_idx];
+                                if (((abs(wwd.PDG) <= 5) || (wwd.PDG == 21)) && wwd.generatorStatus == 23) {  // Quarks only (direct products of the hard interaction)
+                                    quark_indices.push_back(wwd_idx);
+                                }
+                            }
+                        }
                     }
+
                 }
             }
         }
     }
     // Print the quark indices as int_array_to_string
-
     //exit(0);
     // return unique elements only
-
-    std::sort(quark_indices.begin(), quark_indices.end());
-    quark_indices.erase(std::unique(quark_indices.begin(), quark_indices.end()), quark_indices.end());
-        if (debug) {
-        rdfVerbose << "Quark indices from Higgs: " << int_array_to_string(quark_indices) << endl;
-        // if size of quark_indices is zero, make another loop through the particles.
-        // for each, if it's a higgs, print its status and daughters (pdg and idx and status)
-        rdfVerbose << "_-------" ;
-        for (size_t i = 0; i < mc.size(); ++i) {
-            auto & p = mc[i];
-            if (p.PDG == 25) {
-                rdfVerbose << "Higgs at index " << i << " status " << p.generatorStatus << " daughters: ";
-                vector<int> daughters = get_list_of_direct_particles_from_decay(i, mc, ind);
-                for(auto & d_idx : daughters) {
-                    auto & d = mc[d_idx];
-                    rdfVerbose << "  Daughter index: " << d_idx << " PDG " << d.PDG << " status " << d.generatorStatus << endl;
+    // if quark_indices is empty, log a warning and dump info about the event and then exit(1);
+    if (quark_indices.size() == 0 ) {
+        rdfVerbose << "  EMPTY QUARK INDICES  " << endl;
+         if (false) { // just for temporary debugging
+            rdfVerbose << "Quark indices from Higgs: " << int_array_to_string(quark_indices) << endl;
+            // If size of quark_indices is zero, make another loop through the particles.
+            // For each, if it's a Higgs, print its status and daughters (pdg and idx and status)
+            rdfVerbose << "-------" ;
+            for (size_t i = 0; i < mc.size(); ++i) {
+                auto & p = mc[i];
+                if (p.PDG == 25) {
+                    rdfVerbose << "Higgs at index " << i << " status " << p.generatorStatus << " daughters: ";
+                    vector<int> daughters = get_list_of_direct_particles_from_decay(i, mc, ind);
+                    for(auto & d_idx : daughters) {
+                        auto & d = mc[d_idx];
+                        rdfVerbose << "   Daughter index: " << d_idx << " PDG " << d.PDG << " status " << d.generatorStatus << endl;
+                        // for each of the daughters of daughters, also do the same
+                        vector<int> ddaughters = get_list_of_direct_particles_from_decay(d_idx, mc, ind);
+                        for(auto & dd_idx : ddaughters) {
+                            auto & dd = mc[dd_idx];
+                            rdfVerbose << "     Granddaughter index: " << dd_idx << " PDG " << dd.PDG << " status " << dd.generatorStatus << endl;
+                            // also for grandgrandaughters of granddaughters
+                            vector<int> ggdaughters = get_list_of_direct_particles_from_decay(dd_idx, mc, ind);
+                            for(auto & ggd_idx : ggdaughters) {
+                                auto & ggd = mc[ggd_idx];
+                                rdfVerbose << "       Great-granddaughter index: " << ggd_idx << " PDG " << ggd.PDG << " status " << ggd.generatorStatus << endl;
+                            }
+                        }
+                    }
                 }
             }
         }
+        //exit(1);
     }
+
+    std::sort(quark_indices.begin(), quark_indices.end());
+    quark_indices.erase(std::unique(quark_indices.begin(), quark_indices.end()), quark_indices.end());
 
     return quark_indices;
 }
@@ -346,14 +375,14 @@ vector<int> getGTLabels(vector<int> initial_quarks, Vec_mc in, ROOT::VecOps::RVe
     result.resize(in.size(), -1);
     for (size_t i = 0; i < initial_quarks.size(); ++i) {
         vector<int> list_of_particles = get_list_of_end_decay_products_recursive(initial_quarks[i], in, ind);
-        rdfVerbose << "Particle " << i << " (index " << initial_quarks[i] << ") has " << list_of_particles.size() << " decay products." << endl;
+        //rdfVerbose << "Particle " << i << " (index " << initial_quarks[i] << ") has " << list_of_particles.size() << " decay products." << endl;
         // Now print all of those decay products in one line.
         // This needs to be done in a single rdfVerbose statement to avoid interleaving with other messages
         string decay_products = "";
         for (size_t j = 0; j < list_of_particles.size(); ++j) {
             decay_products += to_string(list_of_particles[j]) + " ";
         }
-        rdfVerbose << "  Decay products: " << decay_products << endl;
+       // rdfVerbose << "  Decay products: " << decay_products << endl;
 
         for (size_t j = 0; j < list_of_particles.size(); ++j) {
             if(result[list_of_particles[j]] == -1) { // Only set if not already set
@@ -382,9 +411,8 @@ vector<int> convertMCJetLabelsIntoRecoJetLabels(vector<int> mc_labels, vector<in
 }
 
 
-
 Vec_rp get_GT_jets_from_initial_particles(Vec_mc mc_particles, vector<int> quark_idx) {
-    // Picks the intial quarks and returns them in the same format as the jets, so that they can be used in the existing matching functions
+    // Picks the initial quarks and returns them in the same format as the jets, so that they can be used in the existing matching functions
     vector<rp> result;
     for (auto & i : quark_idx) {
         if(i >= 0 && i < mc_particles.size()) {
@@ -407,6 +435,8 @@ Vec_rp get_GT_jets_from_initial_particles(Vec_mc mc_particles, vector<int> quark
             p.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
             p.charge = 0; // Quarks have fractional charge, set to 0 for jets
             result.push_back(p);
+        } else {
+        rdfVerbose << "Quark index " << i << " is out of bounds for mc_particles of size " << mc_particles.size() << endl;
         }
     }
     return convert(result);
@@ -427,8 +457,7 @@ Vec_rp select_rp(Vec_rp rpart, vector<int> mc_part_idx) {
             const float pz = temp.momentum[2];
             const float e  = rpart[k].energy;
             const float m2 = e*e - (px*px + py*py + pz*pz);
-            temp.mass = (m2 > 0.f) ? std::sqrt(m2)
-                                    : 0.f;
+            temp.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
             temp.energy = e;
             temp.charge = rpart[k].charge;
             result.push_back(temp);
@@ -448,14 +477,17 @@ Vec_rp vec_mc_to_rp(Vec_mc vec_mc) {
         temp.momentum[0] = p.momentum.x;
         temp.momentum[1] = p.momentum.y;
         temp.momentum[2] = p.momentum.z;
-
+        const float e = std::sqrt(p.momentum.x * p.momentum.x +
+                                     p.momentum.y * p.momentum.y +
+                                     p.momentum.z * p.momentum.z +
+                                     p.mass * p.mass);
         const float px = temp.momentum[0];
         const float py = temp.momentum[1];
         const float pz = temp.momentum[2];
-        const float e  = temp.energy;
         const float m2 = e*e - (px*px + py*py + pz*pz);
         temp.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
         temp.charge = p.charge;
+        temp.energy = e;
         result.push_back(temp);
     }
     return convert(result);
@@ -667,7 +699,6 @@ float invariant_mass(Vec_rp jets, bool debug = false) { // vec_rp could be eithe
         total_lv += j_lv;
 
     }
-    rdfVerbose << "Invariant mass comp completed" << endl;
     return total_lv.M();
 }
 
@@ -720,6 +751,22 @@ std::vector<int> get_reco_truth_jet_mapping(Vec_rp reco_jets, Vec_rp gen_jets, f
     return result;
 }
 
+tuple<vector<float>, float> get_E_charged_reco_particles(Vec_rp reco_particles) {
+    // for the particles with nonzero charge, get the (1) energies of the charged particles and
+    // (2) fractions of E carried by charged particles vs by all reconstructed particles in the event
+    std::vector<float> result_E;
+    float result_chargedE;
+    float totalE = 0.f;
+    for (const auto &p : reco_particles) {
+        totalE += p.energy;
+        if (p.charge != 0) {
+            result_E.push_back(p.energy);
+            result_chargedE += p.energy;
+        }
+    }
+    return std::make_tuple(result_E, result_chargedE/totalE);
+}
+
 vector<float> filter_number_by_bin(vector<float> values, vector<float> binning, float lower_bound, float upper_bound) { // Return a vector<float> of the values that fall within the specified bin range
     std::vector<float> result;
     // values and binning have the same size. go through binning and, if the current value is within the specified range, add it to the result
@@ -757,6 +804,21 @@ tuple<vector<float>, vector<float>> matched_genjet_E_and_all_genjet_E(vector<int
         }
     }
     return tuple(matched, all_genjet);
+}
+
+
+vector<float> cut_by_quantity(vector<float> quantity, vector<float> quantity_to_cut_on, float low, float high ) {
+    vector<float> result;
+    if(quantity.size() != quantity_to_cut_on.size()) {
+        std::cout << "ERROR: cut_by_quantity, vectors must be of same size." << std::endl;
+        exit(1);
+    }
+    for(size_t i = 0; i < quantity.size(); ++i) {
+        if(quantity_to_cut_on[i] >= low && quantity_to_cut_on[i] < high) {
+            result.push_back(quantity[i]);
+        }
+    }
+    return result;
 }
 
 tuple<vector<float>, vector<float>, vector<float>, vector<float>> get_energy_ratios_for_matched_jets(vector<int> reco_to_gen_matching, Vec_rp reco_jets, Vec_rp gen_jets) {

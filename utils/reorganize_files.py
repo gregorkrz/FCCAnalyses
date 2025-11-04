@@ -19,10 +19,21 @@ folder_map = {
 
 }
 
+
+folder_map = {
+    "PFDurham_AK4_ISR": "AK4_PF",
+    "PFDurham_AK6_ISR": "AK6_PF",
+    "PFDurham_AK8_ISR": "AK8_PF",
+    "PFDurham_AK10_ISR": "AK10_PF",
+    "PFDurham_AK12_ISR": "AK12_PF",
+    "PFDurham_ISR": "Durham_PF",
+    "CaloJetDurham_ISR": "Durham_Calo"
+}
+'''
 folder_map = {
     "CaloJetDurham_ISR": "CaloJets_Durham",
     "PFDurham_ISR": "PFJets_Durham"
-}
+}'''
 
 # GenJetDurhamFastJet_ISR     GenJetDurhamFastJet_ISR_AK10  GenJetDurhamFastJet_ISR_AK6  GenJetDurhamFastJet_NoISR_AK
 # GenJetDurhamFastJet_NoISR_AK14  GenJetDurhamFastJet_NoISR_AK8
@@ -32,7 +43,7 @@ folder_map = {
 
 # Base directory (optional, use '.' if script is in the same place)
 base_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240"
-target_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240/CaloVsPF_reorganized"
+target_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240/Calo_vs_PF_and_AK_organized"
 
 # Loop through each folder and its corresponding new name
 for folder_name, new_name in folder_map.items():

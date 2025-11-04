@@ -18,7 +18,7 @@ AK_RADIUS=${1:-0.6}
 
 # --- Environment variables ---
 export INPUT_DIR=/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/22102025/ISR_ecm240
-export FOLDER_NAME=GenJetDurhamFastJet_ISR_AK${AK_RADIUS//./}  # Replace dot with nothing for folder name
+export FOLDER_NAME=GenJetDurhamFastJet_ISR_eeAK${AK_RADIUS//./}  # Replace dot with nothing for folder name
 export JET_ALGO=AK
 export AK_RADIUS
 export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240

@@ -51,8 +51,37 @@ for file in os.listdir(args.folder):
 
 ########################################################################################################
 
-binsE = [0, 25, 50, 75, 100]
+binsE = [0, 40, 50, 60, 70, 80, 90, 100]
 bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
+
+# Define the Double-Sided Crystal Ball function
+def double_crystal_ball(x, mu, sigma, alphaL, nL, alphaR, nR, norm):
+    """Double-sided Crystal Ball PDF."""
+    t = (x - mu) / sigma
+    result = np.zeros_like(t)
+
+    # Left side
+    maskL = t < -alphaL
+    result[maskL] = norm * (
+        (nL / abs(alphaL)) ** nL
+        * np.exp(-0.5 * alphaL**2)
+        / (nL / abs(alphaL) - abs(alphaL) - t[maskL]) ** nL
+    )
+
+    # Gaussian core
+    maskC = (~maskL) & (t < alphaR)
+    result[maskC] = norm * np.exp(-0.5 * t[maskC] ** 2)
+
+    # Right side
+    maskR = t >= alphaR
+    result[maskR] = norm * (
+        (nR / abs(alphaR)) ** nR
+        * np.exp(-0.5 * alphaR**2)
+        / (nR / abs(alphaR) - abs(alphaR) + t[maskR]) ** nR
+    )
+
+    return result
+
 
 def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"):
     # Sigma methods: std68, RMS, interquantile_range
@@ -64,7 +93,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
         if s != 0:
             theHist /= s  # normalize the histogram to 1
         wmin = 0.2
-        wmax = 1.0
+        wmax = 1.8
         weight = 0.0
         points = []
         sums = []
@@ -87,7 +116,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
                         low = points[i][0]
                         high = points[j][0]
                         width = wx
-        if low == 0.2 and high == 1.0:
+        if low == 0.2 and high == 1.8:
             # Didn't fit well, try mean and stdev
             # Compute the stdev from the histogram
             std68 = 0.0
@@ -100,8 +129,8 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             return std68, mean - std68, mean + std68, MPV
         return 0.5 * (high - low), low, high, MPV
 
-    def root_file_get_hist_and_edges(root_file, hist_name):
-        # Print available root column names
+    def root_file_get_hist_and_edges(root_file, hist_name, rebin_factor=1):
+        # Rebin_factor: if 1, no rebinning, if 2, combine every 2 bins, etc.
         print("Available histograms:", [key.GetName() for key in root_file.GetListOfKeys()])
         h = root_file.Get(hist_name)
         if not h:
@@ -112,15 +141,27 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
                          [h.GetXaxis().GetBinUpEdge(i) for i in range(1, nb+1)])
         y = np.array([h.GetBinContent(i) for i in range(1, nb+1)], dtype=float)
         assert len(edges) == len(y) + 1
+        if rebin_factor > 1:
+            # rebin y and edges
+            n_bins_rebinned = len(y) // rebin_factor
+            y_rebinned = np.array([np.sum(y[i*rebin_factor:(i+1)*rebin_factor]) for i in range(n_bins_rebinned)])
+            edges_rebinned = np.array([edges[i*rebin_factor] for i in range(n_bins_rebinned)] +
+                                     [edges[n_bins_rebinned * rebin_factor]])
+            return y_rebinned, edges_rebinned
         return y, edges
     bin_mid_points = []
     lo_hi_MPV = []
     sigmaEoverE = []
     responses = []
     bins_to_histograms = {}
+    def is_twojet_proc(procname):
+        return "vvbb" in procname or "vvqq" in procname or "vvgg" in procname
     for i in range(len(bins) - 1):
         hist_name = f"binned_E_reco_over_true_{suffix}{neg_format(bins[i])}_{neg_format(bins[i+1])}"
-        y, edges = root_file_get_hist_and_edges(f, hist_name)
+        rf = 1
+        #if bins[i] == 0 and bins[i+1] == 25 and is_twojet_proc(procname):
+        #    rf = 2  # to reduce statistical fluctuations when stats are low
+        y, edges = root_file_get_hist_and_edges(f, hist_name, rebin_factor=rf)
         if y is None:
             print(f"Skipping bin [{bins[i]}, {bins[i+1]}] due to missing histogram")
             continue
@@ -158,6 +199,20 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             low = edges[low_idx]
             high = edges[high_idx]
             std68 = 0.5 * (high - low)
+        elif sigma_method == "DSCB":
+            centers = 0.5 * (edges[1:] + edges[:-1])
+            MPV_guess = 0.5 * (edges[np.argmax(y)] + edges[np.argmax(y) + 1])
+            sigma_guess = np.std(np.repeat(centers, yc.astype(int))) if np.sum(yc) > 0 else 1.0
+            p0 = [MPV_guess, sigma_guess, 1.5, 3.0, 1.5, 3.0, max(yc)]
+            try:
+                popt, _ = curve_fit(double_crystal_ball, centers, yc, p0=p0, maxfev=10000)
+                mu, sigma, alphaL, nL, alphaR, nR, norm = popt
+                MPV = mu
+                std68 = sigma
+                low, high = mu - sigma, mu + sigma
+            except RuntimeError:
+                print("⚠️ DSCB fit failed; reverting to RMS.")
+                return get_result_for_process(y, edges, sigma_method="RMS")
         else:
             raise ValueError(f"Unknown sigma method: {sigma_method}")
         lo_hi_MPV.append([low, high, MPV])
@@ -165,7 +220,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
         bin_mid_points.append(bin_mid)
         sigmaEoverE.append(std68 / MPV)
         responses.append(MPV)
-        print(f"Bin [{bins[i]}, {bins[i+1]}]: std68 = {std68:.4f}, low = {low:.4f}, high = {high:.4f}, MPV={MPV},N={np.sum(yc)}")
+        print(f"Bin [{bins[i]}, {bins[i+1]}]: {method} = {std68:.4f}, low = {low:.4f}, high = {high:.4f}, MPV={MPV},N={np.sum(yc)}")
     ax_hist.legend()
     ax_hist.set_xlabel(r'$E_{reco} / E_{true}$')
     ax_hist.set_ylabel('Entries')
@@ -199,32 +254,42 @@ for method in ["std68", "RMS", "interquantile_range"]:
     fig.tight_layout()
     fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_{}.pdf".format(histograms_folder, args.output, method))
 
-method_to_color = {"std68": "blue", "RMS": "orange", "interquantile_range": "green"}
+method_to_color = {"std68": "blue", "RMS": "orange", "interquantile_range": "green", "DSCB": "red"}
 ### Plot each bin on a separate plot, but different processes on same plot
 fig, ax = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
+fig_bins, ax_bins = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
+
 for i in range(len(binsE) - 1):
     for process in sorted(list(processList.keys())):
         y_normalized, edges = bin_to_histograms_storage[process][i]
         # plot on ax[i]
         bin_widths = np.diff(edges)
         ax[i].step(edges[:-1], y_normalized, where="post", label=process)
+        ax_bins[i].step(edges[:-1], y_normalized, where="post", label=process)
         for method in method_low_high_mid_point_storage[process]:
             lo, hi, mpv = method_low_high_mid_point_storage[process][method][i]
             # plot vertical lines at lo, hi and mppv using method_to_color
-            ax[i].axvline(lo, color=method_to_color[method], linestyle="--", alpha=0.8)
-            ax[i].axvline(hi, color=method_to_color[method], linestyle="--", alpha=0.8)
-            ax[i].axvline(mpv, color=method_to_color[method], linestyle="-", alpha=0.8)
-
+            for _ax in [ax[i], ax_bins[i]]:
+                _ax.axvline(lo, color=method_to_color[method], linestyle="--", alpha=0.8)
+                _ax.axvline(hi, color=method_to_color[method], linestyle="--", alpha=0.8)
+                _ax.axvline(mpv, color=method_to_color[method], linestyle="-", alpha=0.8)
     ax[i].set_title(f'Bin [{binsE[i]}, {binsE[i + 1]}] GeV')
     ax[i].set_ylabel('Entries')
     ax[i].legend()
     ax[i].set_xlim([0.95, 1.05])
+    ax_bins[i].set_title(f'Bin [{binsE[i]}, {binsE[i + 1]}] GeV')
+    ax_bins[i].set_ylabel('Entries')
+    ax_bins[i].legend()
+    ax_bins[i].set_yscale("log")
+
 ax[-1].set_xlabel(r'$E_{reco} / E_{true}$')
+ax_bins[-1].set_xlabel(r'$E_{reco} / E_{true}$')
 
 fig.tight_layout()
 fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison.pdf".format(histograms_folder, args.output))
 
-
+fig_bins.tight_layout()
+fig_bins.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison_full_axis.pdf".format(histograms_folder, args.output))
 
 for method in ["std68", "RMS", "interquantile_range"]:
     fig, ax = plt.subplots(2, 1, figsize=(8, 6))

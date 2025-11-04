@@ -2,11 +2,11 @@ source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
 set -e
 
 export INPUT_DIR=/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/20251028
-export FOLDER_NAME=CaloJetDurham_ISR
+export FOLDER_NAME=PFDurham_ISR_CaloJets
 export JET_ALGO=CaloJetDurham
-export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240
+export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240_GGdebug_FullSample
 
 #fccanalysis run histmaker_jetE.py
 python3 simple_histograms.py
-python3 resolution_plots.py
-fccanalysis plots plots_jetE_alljets.py
+#python3 resolution_plots.py
+#fccanalysis plots plots_jetE_alljets.py

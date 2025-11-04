@@ -274,7 +274,7 @@ hists["h_mH_reco_core"] = {
     "output": "h_mH_reco_core",
     "logy": True,
     "stack": False,
-    #"ymax": 150000,
+    "ymax": 1e5,
     "xtitle": "mH (reco) [GeV]",
     "ytitle": "Events",
 }

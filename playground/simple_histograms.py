@@ -6,9 +6,9 @@ import numpy as np
 
 assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
 assert "FOLDER_NAME" in os.environ
+assert "HISTOGRAMS_FOLDER_NAME" in os.environ
 
-inputDir = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}".format(os.environ["FOLDER_NAME"])
-
+inputDir = "../../idea_fullsim/fast_sim/{}/{}".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
 # Get all ROOT files in the directory
 root_files = [f for f in os.listdir(inputDir) if f.endswith(".root")]
 # remove "p8_ee_ZH_llbb_ecm365".root if it exists
@@ -42,7 +42,6 @@ for fname in root_files:
     label = os.path.splitext(fname)[0]
     plt.plot(x_vals, y_vals, label=label)
     f.Close()
-
 plt.xlabel("E_reco / E_true")
 plt.xlim([0.9, 1.1])
 plt.ylabel("Normalized Entries")
@@ -50,14 +49,128 @@ plt.title("Comparison of h_fancy histograms")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/norm_E_over_true_overlaid.pdf".format(os.environ["FOLDER_NAME"]))
+plt.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+
+# Make the same plot but with a thin line, only for nu nu q q and with xlim from -0.6 to +0.6
+fig, ax = plt.subplots(2, 1, figsize=(5, 10))
+for fname in root_files:
+    file_path = os.path.join(inputDir, fname)
+    f = ROOT.TFile.Open(file_path)
+    if not f or f.IsZombie():
+        print(f"Could not open {fname}")
+        continue
+    hist = f.Get("h_fancy")
+    if not hist:
+        print(f"No 'h_fancy' histogram in {fname}")
+        f.Close()
+        continue
+    # Convert histogram to numpy arrays
+    n_bins = hist.GetNbinsX()
+    x_vals = np.array([hist.GetBinCenter(i) for i in range(1, n_bins + 1)])
+    y_vals = np.array([hist.GetBinContent(i) for i in range(1, n_bins + 1)])
+    # Normalize
+    integral = np.sum(y_vals)
+    print("Integral of histogram in {}: {}".format(fname, integral))
+    if integral > 0:
+        y_vals = y_vals / integral
+    else:
+        print(f"Warning: {fname} histogram integral = 0")
+    # Plot
+    label = os.path.splitext(fname)[0]
+    ax[0].plot(x_vals, y_vals, label=label, linewidth=1)
+    ax[1].plot(x_vals, y_vals, label=label, linewidth=1)
+    # Now make a Gaussian fit from x_vals 0.8 to 1.2. Plot it in that range as well and put sigma and mean in the legend
+    # You can initialize parameters with stdev and mean
+    # Do it here:
+    # Fit a Gaussian to the 0.8–1.2 range and plot it
+    mask = (x_vals >= 0.8) & (x_vals <= 1.2)
+    x_fit = x_vals[mask]
+    y_fit = y_vals[mask]
+    if x_fit.size >= 3 and np.sum(y_fit) > 0:
+        # Moment-based initial guesses (use y as weights)
+        w = y_fit
+        mu0 = np.average(x_fit, weights=w)
+        var0 = np.average((x_fit - mu0) ** 2, weights=w)
+        sigma0 = np.sqrt(max(var0, 1e-12))
+        A0 = y_fit.max()
+        def gauss(x, A, mu, sigma):
+            # clip sigma to avoid division by zero during fitting/plotting
+            s = np.clip(sigma, 1e-12, None)
+            return A * np.exp(-0.5 * ((x - mu) / s) ** 2)
+        # Try a nonlinear least-squares fit; fall back to moment estimates if it fails
+        try:
+            from scipy.optimize import curve_fit
+            popt, _ = curve_fit(
+                gauss, x_fit, y_fit,
+                p0=[A0, mu0, sigma0],
+                bounds=([0.0, 0.8, 1e-6], [np.inf, 1.2, np.inf]),
+                maxfev=10000,
+            )
+            A, mu, sigma = popt
+        except Exception as _e:
+            # Fallback: use moment estimates without optimization
+            A, mu, sigma = A0, mu0, sigma0
+        # Plot the fitted Gaussian over the fit window
+        x_dense = np.linspace(0.9, 1.1, 200)
+        ax[0].plot(
+            x_dense,
+            gauss(x_dense, A, mu, sigma),
+            linestyle="--",
+            linewidth=1,
+            label=f"{label} fit μ={mu:.3f}, σ={sigma:.3f}",
+        )
+        print("PLOTTING ")
+        ax[1].plot(
+            x_dense,
+            gauss(x_dense, A, mu, sigma),
+            linestyle="--",
+            linewidth=1,
+            label=f"{label} fit μ={mu:.3f}, σ={sigma:.3f}",
+        )
+    else:
+        print(f"Not enough points in [0.8, 1.2] for {fname} to fit.")
+    #############################################################################
+    ### Plot on the same plot the histogram h_ratio_matching_with_partons     ###
+    #############################################################################
+    '''hist_ratio = f.Get("h_ratio_matching_with_partons")
+    if not hist_ratio:
+        print(f"No 'h_ratio_matching_with_partons' histogram in {fname}")
+        f.Close()
+        continue
+    # Convert histogram to numpy arrays
+    n_bins_ratio = hist_ratio.GetNbinsX()
+    x_vals_ratio = np.array([hist_ratio.GetBinCenter(i) for i in range(1, n_bins_ratio + 1)])
+    y_vals_ratio = np.array([hist_ratio.GetBinContent(i) for i in range(1, n_bins_ratio + 1)])
+    # Normalize
+    integral_ratio = np.sum(y_vals_ratio)
+    print("Integral of histogram ratio in {}: {}".format(fname, integral_ratio))
+    if integral_ratio > 0:
+        y_vals_ratio = y_vals_ratio / integral_ratio
+    else:
+        print(f"Warning: {fname} histogram ratio integral = 0")
+    # Plot
+    ax.plot(x_vals_ratio, y_vals_ratio, label=label + " (matched to partons)", linestyle='dashed', linewidth=1)'''
+    #############
+    # Print on the plot the text 'eta < -0.9'
+    #ax.text(0.95, 0.9 - 0.1 * root_files.index(fname), "eta < -0.9".format(label), transform=ax.transAxes)
+    ax[0].set_xlabel("E_reco / E_true")
+    ax[0].set_ylabel("Normalized Entries")
+    ax[0].set_title("Comparison of E_reco/E_true histograms (ee->ZH->nu nu g g)")
+    ax[0].legend()
+    ax[0].grid(True)
+    ax[1].grid(True)
+    ax[1].set_xlim([0.85, 1.15])
+    f.Close()
+
+fig.tight_layout()
+fig.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid_vvgg.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 #plt.show()
 
 # also plot a log y version
 plt.yscale("log")
 plt.ylim(1e-5, 1)
 plt.xlim([0.5, 1.5])
-plt.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/norm_E_over_true_overlaid_logy.pdf".format(os.environ["FOLDER_NAME"]))
+plt.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid_logy.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 #plt.show()
 
 # There are two histograms: h_genjet_all_energies and h_genjet_matched_energies. Make a plot with the ratio (so basically efficiency) of matched over all vs energy
@@ -68,7 +181,6 @@ for fname in root_files:
     if not f or f.IsZombie():
         print(f"Could not open {fname}")
         continue
-
     hist_all = f.Get("h_genjet_all_energies")
     hist_matched = f.Get("h_genjet_matched_energies")
     if not hist_all or not hist_matched:
@@ -78,7 +190,7 @@ for fname in root_files:
     # Convert histograms to numpy arrays
     n_bins = hist_all.GetNbinsX()
     x_vals = np.array([hist_all.GetBinCenter(i) for i in range(1, n_bins + 1)])
-    # remove the xvals larger than 175
+    # Remove the xvals larger than 175
     filt = x_vals <= 100
     x_vals = x_vals[filt]
     y_all = np.array([hist_all.GetBinContent(i) for i in range(1, n_bins + 1)])[filt]
@@ -99,16 +211,21 @@ plt.title("Gen Jet Matching Efficiency vs. Energy")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("../../idea_fullsim/fast_sim/Histograms_ECM240/{}/matching_efficiency_vs_energy.pdf".format(os.environ["FOLDER_NAME"]))
+plt.savefig("../../idea_fullsim/fast_sim/{}/{}/matching_efficiency_vs_energy.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 plt.clf()
 
 ## Produce the Higgs mass plots similar to the ones in the fccanalysis plots file but easier to manipulate
 
 fig, ax = plt.subplots(len(root_files), 2,  figsize=(8, 2.7 * len(root_files)))
+fig_mH_all, ax_mH_all = plt.subplots(1, 2, figsize=(8, 5)) # plot mH reco of all root files on the same plot, left side fully and right side zoomed into the peak
+
 figlog, axlog = plt.subplots(len(root_files), 2, figsize=(8, 2.7 * len(root_files)))
 
-# Higgs mass histogram
+if len(root_files) == 1:
+    ax = np.array([ax])
+    axlog = np.array([axlog])
 
+# Higgs mass histogram
 for i, fname in enumerate(root_files):
     file_path = os.path.join(inputDir, fname)
     f = ROOT.TFile.Open(file_path)
@@ -150,6 +267,7 @@ for i, fname in enumerate(root_files):
     else:
         print(f"Warning: {fname} histogram integral = 0")
 
+
     print("Sum of y vals now", np.sum(y_vals_gen))
     integral_gt = np.sum(y_vals_gt)
     step_size_gt = x_vals_gt[1] - x_vals_gt[0]
@@ -172,6 +290,8 @@ for i, fname in enumerate(root_files):
         y_vals_reco = y_vals_reco / step_size_reco  # Normalize to bin width
     else:
         print(f"Warning: {fname} histogram integral = 0")
+    ax_mH_all[0].step(x_vals_reco, y_vals_reco, where='mid', label=label, linestyle='solid')
+    ax_mH_all[1].step(x_vals_reco, y_vals_reco, where='mid', label=label, linestyle='solid')
     #ax.plot(x_vals_reco, y_vals_reco, label=label + " (reco)", linestyle='solid')
     #ax.plot(x_vals_gen, y_vals_gen, label=label + " (gen)", linestyle='dashed')
     for k in range(2):
@@ -189,16 +309,71 @@ for i, fname in enumerate(root_files):
         ax[i, k].set_title(label)
     ax[i, 1].set_xlim([115, 135])
     axlog[i, 1].set_xlim([115, 135])
+
 #ax.legend()
 #ax.set_yscale("log")
 
+p = "../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_reco_vs_gen.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
+plog = "../../idea_fullsim/fast_sim/{}/{}/log_Higgs_mass_reco_vs_gen.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
+phiggs = "../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_reco_overlaid_mH_reco_normalized.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
 
-p = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/Higgs_mass_reco_vs_gen.pdf".format(os.environ["FOLDER_NAME"])
-plog = "../../idea_fullsim/fast_sim/Histograms_ECM240/{}/log_Higgs_mass_reco_vs_gen.pdf".format(os.environ["FOLDER_NAME"])
 
+ax_mH_all[0].set_xlabel("m_H [GeV]")
+ax_mH_all[1].set_xlabel("m_H [GeV]")
+ax_mH_all[0].set_ylabel("Normalized Entries / GeV")
+ax_mH_all[1].set_ylabel("Normalized Entries / GeV")
+ax_mH_all[1].set_xlim([115, 135])
+ax_mH_all[0].grid()
+ax_mH_all[1].grid()
+ax_mH_all[0].legend()
+#ax_mH_all[1].legend()
+
+fig_mH_all.tight_layout()
 fig.tight_layout()
 fig.savefig(p)
 figlog.tight_layout()
 figlog.savefig(plog)
+fig_mH_all.savefig(phiggs)
+print("Saving to", p, plog, phiggs)
 
-print("saving to", p)
+
+# Make a plot of h_mH_all_stable_part
+fig2, ax2 = plt.subplots(len(root_files), 1, figsize=(8, 2.7 * len(root_files)))
+if len(root_files) == 1:
+    ax2 = np.array([ax2])
+for i, fname in enumerate(root_files):
+    file_path = os.path.join(inputDir, fname)
+    f = ROOT.TFile.Open(file_path)
+    if not f or f.IsZombie():
+        print(f"Could not open {fname}")
+        continue
+    hist_gen = f.Get("h_mH_all_stable_part")
+    if not hist_gen:
+        print(f"No 'h_mH_all_stable_part' histogram in {fname}")
+        f.Close()
+        continue
+    n_bins = hist_gen.GetNbinsX()
+    x_vals_gen = np.array([hist_gen.GetBinCenter(i) for i in range(1, n_bins + 1)])
+    y_vals_gen = np.array([hist_gen.GetBinContent(i) for i in range(1, n_bins + 1)])
+    # Normalize
+    integral = np.sum(y_vals_gen)
+    step_size_gen = x_vals_gen[1] - x_vals_gen[0]
+    print("Integral of histogram in {}: {}".format(fname, integral))
+    if integral > 0:
+        y_vals_gen = y_vals_gen / integral / step_size_gen
+    else:
+        print(f"Warning: {fname} histogram integral = 0")
+    # Plot
+    label = os.path.splitext(fname)[0]
+    ax2[i].step(x_vals_gen, y_vals_gen, where='mid', label=label)
+    ax2[i].set_title(label)
+    ax2[i].set_xlabel("Inv Mass all gen particles [GeV]")
+    ax2[i].set_ylabel("Normalized Entries / GeV")
+    ax2[i].legend()
+    ax2[i].grid()
+    f.Close()
+fig2.tight_layout()
+fig2.savefig("../../idea_fullsim/fast_sim/{}/{}/inv_mass_all_gen_particles_normalized.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+plt.clf()
+#plt.show()
+
