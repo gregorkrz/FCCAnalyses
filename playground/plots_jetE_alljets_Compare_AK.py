@@ -33,7 +33,8 @@ inputDir       = '../../idea_fullsim/fast_sim/{}/{}'.format(os.environ["HISTOGRA
 plotStatUnc    = True
 
 colors = {}
-color_presets = [ROOT.kRed, ROOT.kBlue+1, ROOT.kCyan+2, ROOT.kMagenta, ROOT.kOrange+7, ROOT.kGray+1, ROOT.kGreen, ROOT.kOrange]
+color_presets = [ROOT.kRed, ROOT.kBlue+1, ROOT.kCyan+2, ROOT.kMagenta, ROOT.kOrange+7, ROOT.kGray+1, ROOT.kGreen, ROOT.kOrange,
+                 ROOT.kViolet, ROOT.kAzure+1, ROOT.kPink+1, ROOT.kTeal+1]
 
 procs = {"signal": {}, "backgrounds": {}}
 
@@ -300,7 +301,7 @@ hists["h_mH_MC_part"] =  {
     "ytitle": "Events"
 }
 
-
+'''
 hists["h_frac_E_charged"] = {
     "output": "h_frac_E_charged",
     "logy": False,
@@ -311,7 +312,18 @@ hists["h_frac_E_charged"] = {
 hists["h_E_charged"] = {
     "output": "h_E_charged",
     "logy": False,
-    "xtitle": "Fraction of E charged",
-    "ytitle": "Events"
+    "xtitle": "E of charged PFCand",
+    "ytitle": "Number of PFCands"
 }
 
+hists["h_E_reco_over_true_Charged"] = {
+    "output":   "h_E_reco_over_true_Charged",
+    "logy":     False,
+    "stack":    False,
+    "xtitle":   "E_reco/E_true (Charged PFCands)",
+    "ytitle":   "Number of PFCands",
+    "xmin": 0.9,
+    "xmax": 1.1,
+    "ymax": 5e6
+}
+'''

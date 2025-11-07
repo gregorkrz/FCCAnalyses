@@ -1,3 +1,4 @@
+# This file is DEPRECATED; use histmaker_jetE_filter_GT.py
 # export FOLDER_NAME=GenJetDurhamFastJet_NoISR
 # export INPUT_DIR=/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/22102025/ISR_ecm240 fccanalysis run histmaker_jetE.py
 # source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
@@ -198,7 +199,6 @@ def build_graph(df, dataset):
     df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances({})".format(RecoJetVariable))
     df = df.Define("min_distance_between_genjets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances({}))".format(format(GenJetVariable)))
     df = df.Define("min_distance_between_recojets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances({}))".format(RecoJetVariable))
-
     # Will be different for each process with e+e- kt algorithm
     hist_njets = df.Histo1D(("h_njets", "Number of reconstructed jets;N_jets;Events", 10, 0, 10), "njets")
     hist_ngenjets = df.Histo1D(("h_ngenjets", "Number of generated jets;N_genjets;Events", 10, 0, 10), "ngenjets")
@@ -218,7 +218,6 @@ def build_graph(df, dataset):
     df = df.Define("genjet_energies_matched", "std::get<2>(matching_processing)")
     df = df.Define("genjet_etas_matched", "std::get<3>(matching_processing)")
     df = df.Define("num_matched_reco_jets", "genjet_energies_matched.size()")
-
     # Bin the ratio_jet_energies_fancy according to genjet_energies (bins [0, 50, 100, 150, 200])
     histograms = [hist_genjet_all_energies, hist_genjet_matched_energies, hist_dist_jets_gen, hist_dist_jets_reco, hist_min_dist_jets_reco, hist_min_dist_jets_gen]
     for i in range(len(bins) - 1):
@@ -240,7 +239,6 @@ def build_graph(df, dataset):
     # Make a histogram of jet energies
     h_Ejet = df.Histo1D(("h_E_all_reco_jets", "E of reco jet;E_reco;Events", 100, 0, 300), "jet_energies")
     h_Egenjet = df.Histo1D(("h_E_all_gen_jets", "E of gen jet;E_gen;Events", 100, 0, 300), "genjet_energies")
-
     #h_Ejet = df.Histo1D(("h_E_all_jets", "E of jet;E_reco;Events", 100, 0, 300), "JetDurhamN4.energy")
     #h_Egenjet = df.Histo1D(("h_E_all_genjets", "E of genjet;E_gen;Events", 100, 0, 300), "genjet_ene".format(GenJetVariable))
     ### Invariant mass plots ###
@@ -265,7 +263,7 @@ def build_graph(df, dataset):
     #    #df = df.Define("jet_E{}".format(i), "ratio_jet_energies[{}]".format(i))
     #    #h_E = df.Histo1D(("h_E{}".format(i), "E_reco/E_true;E_reco / E_true;Events", 50, 0.8, 1.2), "jet_E{}".format(i))
     #    #results.append(h_E)
-    df = get_Higgs_mass_with_truth_matching(df, genjets_field=GenJetVariable, recojets_field=RecoJetVariable)
+    df = get_Higgs_mass_with_truth_matching(df, genjets_field=GenJetVariable, recojets_field=RecoJetVariable, expected_num_jets=nJets_from_H_process_list[dataset])
     #print("MC part idx", df.AsNumpy(["MC_part_idx"])["MC_part_idx"][:5])
     ##################################################################################################################
     df = df.Define("matching_reco_with_partons", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, 1.0, false)".format(RecoJetVariable, "MC_part_asjets"))
@@ -279,8 +277,11 @@ def build_graph(df, dataset):
     df = df.Define("frac_E_charged", "std::get<1>(charged_particles)")
     h_frac_E_charged = df.Histo1D(("h_frac_E_charged", "Fraction of charged energy in reco particles;E_charged / E_total;Events", 100, 0, 1), "frac_E_charged")
     results.append(h_frac_E_charged)
-    h_E_charged = df.Histo1D(("h_E_charged", "Energy of charged reco particles;E_charged;Events", 100, 0, 250), "E_charged")
+    h_E_charged = df.Histo1D(("h_E_charged", "Energy of charged reco particles;E_charged;Events", 100, 0, 20), "E_charged")
+    df = df.Define("E_reco_over_true_Charged", "FCCAnalyses::ZHfunctions::get_E_reco_over_true_particles(ReconstructedParticles, Particle, reco_mc_links.first)")
+    h_E_reco_over_true_Charged = df.Histo1D(("h_E_reco_over_true_Charged", "E_reco/E_true for charged particles;E_reco / E_true;Events", 500, 0, 2), "E_reco_over_true_Charged")
     results.append(h_E_charged)
+    results.append(h_E_reco_over_true_Charged)
     print("ratio_jet_energies_matching_with_partons:", df.AsNumpy(["ratio_jet_energies_matching_with_partons"])["ratio_jet_energies_matching_with_partons"][:5])
     h_ratio_matching_with_partons = df.Histo1D(("h_ratio_matching_with_partons", "E_reco/E_parton;E_reco / E_parton;Events", 300, 0.5, 1.5), "ratio_jet_energies_matching_with_partons")
     df = df.Define("inv_mass_all_gen_particles", "FCCAnalyses::ZHfunctions::invariant_mass(stable_gen_particles);")
@@ -293,7 +294,7 @@ def build_graph(df, dataset):
     h_mH_reco_all = df.Histo1D(("h_mH_reco_all", "Higgs mass from all reco jets;M_H (all reco jets);Events", 500, 0, 250), "inv_mass_reco_all")
     results = results + [h_mH_reco, h_mH_gen, h_mH_gen_all, h_mH_reco_all, h_mH_all_stable_part, h_Ejet, h_Egenjet,
                          hist_calo_hist_E, h_mH_reco_core, h_mH_gen_core]
-    #### More mass histograms: for inv_mass_stable_gt_particles_from_higgs, inv_mass_reco_particles_matched_from_higgs, inv_mass_MC_part
+    #### More mass histograms: For inv_mass_stable_gt_particles_from_higgs, inv_mass_reco_particles_matched_from_higgs, inv_mass_MC_part
     h_mH_stable_gt_particles = df.Histo1D(("h_mH_stable_gt_particles", "Higgs mass from stable gt particles;M_H (stable gt particles);Events", 500, 0, 250), "inv_mass_stable_gt_particles_from_higgs")
     h_mH_reco_particles_matched = df.Histo1D(("h_mH_reco_particles_matched", "Higgs mass from reco particles matched;M_H (reco particles matched);Events", 500, 0, 250), "inv_mass_reco_particles_matched_from_higgs")
     h_mH_MC_part = df.Histo1D(("h_mH_MC_part", "Higgs mass from initial MC part.;M_H (MC part);Events", 500, 0, 250), "inv_mass_MC_part")

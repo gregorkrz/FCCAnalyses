@@ -34,6 +34,14 @@ namespace FCCAnalyses { namespace Utils {
         }
         return rp;
     }
+    vector<float> get_costheta_from_eta(vector<float> etas) {
+        vector<float> costhetas;
+        for(auto & eta : etas) {
+            float costheta = tanh(eta);
+            costhetas.push_back(costheta);
+        }
+        return costhetas;
+    }
     tuple<vector<float>, vector<float>, vector<float>, vector<int>, vector<float>, vector<float>> serialize_event(Vec_rp rp) {
         // Return tuple of eta, phi, pt //
         vector<float> eta;

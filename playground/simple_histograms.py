@@ -303,6 +303,7 @@ for i, fname in enumerate(root_files):
         axlog[i, k].step(x_vals_gt, y_vals_gt, where='mid', color="green", label="GT")
         axlog[i, k].step(x_vals_gt_recomatched, y_vals_gt_recomatched, where='mid', color="red", label="reco-GT matched")
         axlog[i, k].legend()
+        axlog[i, k].set_ylim([1e-3, 1])
         ax[i, k].legend()
         axlog[i, k].set_title(label)
         axlog[i, k].set_yscale("log")
@@ -377,3 +378,42 @@ fig2.savefig("../../idea_fullsim/fast_sim/{}/{}/inv_mass_all_gen_particles_norma
 plt.clf()
 #plt.show()
 
+# Make a histogram of h_E_reco_over_true_Charged. First, zoomed in from 0.9 to 1.1, then, log y from 0 to 2 (full range of the histogram)
+fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+for fname in root_files:
+    file_path = os.path.join(inputDir, fname)
+    f = ROOT.TFile.Open(file_path)
+    if not f or f.IsZombie():
+        print(f"Could not open {fname}")
+        continue
+    hist = f.Get("h_E_reco_over_true_Charged")
+    if not hist:
+        print(f"No 'h_E_reco_over_true_Charged' histogram in {fname}")
+        f.Close()
+        continue
+    n_bins = hist.GetNbinsX()
+    x_vals = np.array([hist.GetBinCenter(i) for i in range(1, n_bins + 1)])
+    y_vals = np.array([hist.GetBinContent(i) for i in range(1, n_bins + 1)])
+    # Normalize
+    integral = np.sum(y_vals)
+    step_size = x_vals[1] - x_vals[0]
+    print("Integral of histogram in {}: {}".format(fname, integral))
+    if integral > 0:
+        y_vals = y_vals / integral / step_size
+    else:
+        print(f"Warning: {fname} histogram integral = 0")
+    label = os.path.splitext(fname)[0]
+    ax[0].step(x_vals, y_vals, where='mid', label=label)
+    ax[1].step(x_vals, y_vals, where='mid', label=label)
+    f.Close()
+
+ax[0].set_xlabel("E_reco / E_true (Charged)")
+ax[0].set_xlim([0.9, 1.1])
+ax[0].legend()
+ax[1].set_xlabel("E_reco / E_true (Charged)")
+ax[1].set_yscale("log")
+ax[1].legend()
+ax[0].set_ylabel("Normalized Entries / bin width")
+fig.tight_layout()
+fig.savefig("../../idea_fullsim/fast_sim/{}/{}/E_reco_over_true_Charged.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+plt.clf()

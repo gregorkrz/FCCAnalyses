@@ -8,6 +8,7 @@ import os
 
 assert "FOLDER_NAME" in os.environ
 histograms_folder = os.environ.get("HISTOGRAMS_FOLDER_NAME", "Histograms_ECM240")
+
 ###########################################################################################
 # add --folder argument
 
@@ -16,6 +17,37 @@ parser.add_argument("--folder", type=str, default="../../idea_fullsim/fast_sim/{
 parser.add_argument("--output", type=str, default=os.environ["FOLDER_NAME"])
 args = parser.parse_args()
 
+HUMAN_READABLE_PROCESS_NAMES = {
+    "p8_ee_ZH_6jet_ecm240": "Z(→qq)H(→WW→qqqq) (all)",
+    "p8_ee_ZH_bbbb_ecm240": "Z(→bb)H(→bb)",
+    "p8_ee_ZH_qqbb_ecm240": "Z(→qq)H(→bb)",
+    "p8_ee_ZH_vvbb_ecm240": "Z(→νν)H(→bb)",
+    "p8_ee_ZH_vvgg_ecm240": "Z(→νν)H(→gg)",
+    "p8_ee_ZH_vvqq_ecm240": "Z(→νν)H(→qq)",
+    "p8_ee_ZH_6jet_HF_ecm240": "Z(→bb)H(→WW→bbbb)",
+    "p8_ee_ZH_6jet_LF_ecm240": "Z(→qq)H(→WW→qqqq) (LF)",
+    "p8_ee_ZH_bbgg_ecm240": "Z(→bb)H(→gg)",
+    "p8_ee_ZH_qqgg_ecm240": "Z(→qq)H(→gg)",
+}
+
+PROCESS_COLORS = {
+    # 6 jets (blue)
+    "p8_ee_ZH_6jet_ecm240": "#0067A5",
+    "p8_ee_ZH_6jet_HF_ecm240": "#0082C8",
+    "p8_ee_ZH_6jet_LF_ecm240": "#339EDD",
+
+    # 4 jets (violet-magenta hues)
+    "p8_ee_ZH_bbbb_ecm240": "#B832A0",
+    "p8_ee_ZH_qqbb_ecm240": "#8A3BBF",
+    "p8_ee_ZH_bbgg_ecm240": "#C85FCF",
+    "p8_ee_ZH_qqgg_ecm240": "#D890E0",
+
+    # 2 jets (teal-green hues)
+    "p8_ee_ZH_vvbb_ecm240": "#1B9E77",
+    "p8_ee_ZH_vvgg_ecm240": "#33AF8A",
+    "p8_ee_ZH_vvqq_ecm240": "#7CCBA2",
+
+}
 ###########################################################################################
 # python3 resolution_plots.py --folder ../../idea_fullsim/fast_sim/histograms/greedy_matching --output comparison_multiple_jets_allJets_greedyMatching
 
@@ -92,8 +124,8 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
         s =  np.sum(theHist * np.diff(bin_edges))
         if s != 0:
             theHist /= s  # normalize the histogram to 1
-        wmin = 0.2
-        wmax = 1.8
+        wmin = 0.85
+        wmax = 1.15
         weight = 0.0
         points = []
         sums = []
@@ -116,11 +148,10 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
                         low = points[i][0]
                         high = points[j][0]
                         width = wx
-        if low == 0.2 and high == 1.8:
+        if low == 0.85 and high == 1.15:
             # Didn't fit well, try mean and stdev
             # Compute the stdev from the histogram
             std68 = 0.0
-            #print(theHist)
             print("Fitting didnt work")
             mean = np.sum([(0.5 * (bin_edges[i] + bin_edges[i + 1])) * theHist[i] * (bin_edges[i + 1] - bin_edges[i]) for i in range(len(theHist))])
             print("MEAN", mean)
@@ -131,7 +162,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
 
     def root_file_get_hist_and_edges(root_file, hist_name, rebin_factor=1):
         # Rebin_factor: if 1, no rebinning, if 2, combine every 2 bins, etc.
-        print("Available histograms:", [key.GetName() for key in root_file.GetListOfKeys()])
+        #print("Available histograms:", [key.GetName() for key in root_file.GetListOfKeys()])
         h = root_file.Get(hist_name)
         if not h:
             print(f"Warning: histogram {hist_name} not found")
@@ -213,14 +244,45 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             except RuntimeError:
                 print("⚠️ DSCB fit failed; reverting to RMS.")
                 return get_result_for_process(y, edges, sigma_method="RMS")
+        elif sigma_method == "gaussian_fit":
+            # Fit a Gaussian to this histogram from 0.85 to 1.15
+            centers = 0.5 * (edges[1:] + edges[:-1])
+            mask = (centers >= 0.85) & (centers <= 1.15)
+            centers_fit = centers[mask]
+            yc_fit = yc[mask]
+            if len(centers_fit) < 3:
+                print("⚠️ Not enough points to fit a Gaussian; reverting to RMS.")
+                return get_result_for_process(y, edges, sigma_method="RMS")
+            def gaussian(x, mu, sigma, norm):
+                return norm * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+            #fig, ax = plt.subplots()
+            # make a tiny plot of what we are actually fitting and save as fit.pdf
+            #ax.step(centers_fit, yc_fit, where="mid", label="Data")
+            #fig.savefig("fit.pdf")
+            mean_guess = 0.5 * (centers_fit[np.argmax(yc_fit)] + centers_fit[np.argmax(yc_fit) + 1])
+            sigma_guess = np.std(np.repeat(centers_fit, yc_fit.astype(int))) if np.sum(yc_fit) > 0 else 1.0
+            print("Mean guess:", mean_guess, "Sigma guess:", sigma_guess)
+            p0 = [mean_guess, sigma_guess, max(yc_fit)]
+            try:
+                popt, _ = curve_fit(gaussian, centers_fit, yc_fit, p0=p0, maxfev=10000)
+                mu, sigma, norm = popt
+                MPV = mu
+                std68 = sigma
+                low, high = mu - sigma, mu + sigma
+            except RuntimeError:
+                print("⚠️ Gaussian fit failed; reverting to RMS.")
+                return get_result_for_process(y, edges, sigma_method="RMS")
         else:
             raise ValueError(f"Unknown sigma method: {sigma_method}")
         lo_hi_MPV.append([low, high, MPV])
         bin_mid = 0.5 * (bins[i] + bins[i + 1])
-        bin_mid_points.append(bin_mid)
-        sigmaEoverE.append(std68 / MPV)
-        responses.append(MPV)
-        print(f"Bin [{bins[i]}, {bins[i+1]}]: {method} = {std68:.4f}, low = {low:.4f}, high = {high:.4f}, MPV={MPV},N={np.sum(yc)}")
+        if not np.isnan(bin_mid) and not np.isnan(std68):
+            bin_mid_points.append(bin_mid)
+            sigmaEoverE.append(std68 / MPV)
+            responses.append(MPV)
+            print(f"Bin [{bins[i]}, {bins[i+1]}]: {method} = {std68:.4f}, low = {low:.4f}, high = {high:.4f}, MPV={MPV},N={np.sum(yc)}")
+        else:
+            print("NaN encountered in bin mid-point calculation.")
     ax_hist.legend()
     ax_hist.set_xlabel(r'$E_{reco} / E_{true}$')
     ax_hist.set_ylabel('Entries')
@@ -229,11 +291,21 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
 bin_to_histograms_storage = {}
 method_low_high_mid_point_storage = {}
 
-for method in ["std68", "RMS", "interquantile_range"]:
+def get_func_fit(mid_points, Rs):
+    # resolution plot. fit Rs^2 = (a/sqrt(E))^2 + b^2 + (c/E)^2
+    def resolution_func(E, a, b):
+        return np.sqrt((a / np.sqrt(E)) ** 2 + b ** 2)
+    popt, pcov = curve_fit(resolution_func, mid_points, Rs, p0=[0.5, 0.03], maxfev=10000)
+    # return a smooth function throughout mid_points
+    xs = np.linspace(min(mid_points), max(mid_points), 100)
+    ys = resolution_func(xs, *popt)
+    return xs, ys, popt
+
+for method in ["gaussian_fit", "std68", "RMS", "interquantile_range"]:
     print("-----------------------------------------------------------")
     print("Using sigma method:", method)
     fig, ax = plt.subplots(2, 1, figsize=(8, 6))
-    for process in sorted(list(processList.keys())):
+    for proc_idx, process in enumerate(sorted(list(processList.keys()))):
         bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms, mpv_lo_hi = get_result_for_process(process, sigma_method=method)
         if process not in method_low_high_mid_point_storage:
             method_low_high_mid_point_storage[process] = {}
@@ -244,8 +316,13 @@ for method in ["std68", "RMS", "interquantile_range"]:
             fig_histograms.savefig(
                 "../../idea_fullsim/fast_sim/{}/{}/bins_{}_{}.pdf".format(histograms_folder, os.environ["FOLDER_NAME"], process, method)
             )
-        ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
-        ax[1].plot(bin_mid_points, resp, ".--", label=process)
+        clr = PROCESS_COLORS.get(process, f"C{proc_idx}")
+        ax[0].plot(bin_mid_points, sigmaEoverE, "x", label=HUMAN_READABLE_PROCESS_NAMES[process], color=clr)
+        # get_func_fit #
+        xs, ys, popt = get_func_fit(bin_mid_points, sigmaEoverE)
+        print(f"Fitted parameters for {process} using {method}: a={popt[0]:.4f}, b={popt[1]:.4f}")
+        ax[0].plot(xs, ys, "-", color=clr)
+        ax[1].plot(bin_mid_points, resp, ".--", label=process, color=clr)
     ax[0].legend()
     ax[0].set_xlabel('Jet True Energy [GeV]')
     ax[0].set_ylabel(r'$\sigma_E / E$')
@@ -254,7 +331,7 @@ for method in ["std68", "RMS", "interquantile_range"]:
     fig.tight_layout()
     fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_{}.pdf".format(histograms_folder, args.output, method))
 
-method_to_color = {"std68": "blue", "RMS": "orange", "interquantile_range": "green", "DSCB": "red"}
+method_to_color = {"std68": "blue", "RMS": "orange", "interquantile_range": "green", "DSCB": "red", "gaussian_fit": "purple"}
 ### Plot each bin on a separate plot, but different processes on same plot
 fig, ax = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
 fig_bins, ax_bins = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
@@ -291,7 +368,8 @@ fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison.pdf".f
 fig_bins.tight_layout()
 fig_bins.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison_full_axis.pdf".format(histograms_folder, args.output))
 
-for method in ["std68", "RMS", "interquantile_range"]:
+
+for method in ["std68", "RMS", "interquantile_range", "DSCB", "gaussian_fit"]:
     fig, ax = plt.subplots(2, 1, figsize=(8, 6))
     for process in sorted(list(processList.keys())):
         bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _ = get_result_for_process(process, bins=bins_eta,
@@ -315,4 +393,3 @@ for method in ["std68", "RMS", "interquantile_range"]:
     ax[1].set_ylabel("$\sigma_E / E$")
     fig.tight_layout()
     fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_Eta_resolution_data_points_{}.pdf".format(histograms_folder, args.output, method))
-

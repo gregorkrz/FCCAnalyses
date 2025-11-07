@@ -1,5 +1,5 @@
 
-def get_Higgs_mass_with_truth_matching(df, genjets_field="GenJetDurhamN4", recojets_field="JetDurhamN4", define_mc_quark_idx=True):
+def get_Higgs_mass_with_truth_matching(df, genjets_field="GenJetDurhamN4", recojets_field="JetDurhamN4", define_mc_quark_idx=True, expected_num_jets=-1):
     if define_mc_quark_idx:
         df = df.Define("MC_quark_idx", "FCCAnalyses::ZHfunctions::get_MC_quark_index(Particle)")
     df = df.Define("gt_labels", "FCCAnalyses::ZHfunctions::getGTLabels(MC_part_idx, Particle, _Particle_daughters.index);")
@@ -29,9 +29,9 @@ def get_Higgs_mass_with_truth_matching(df, genjets_field="GenJetDurhamN4", recoj
     #print("HardP_to_RecoJet_mapping", df.AsNumpy(["HardP_to_RecoJet_mapping"])["HardP_to_RecoJet_mapping"])
     df = df.Define("filtered_jets", "FCCAnalyses::ZHfunctions::filter_jets({}, HardP_to_RecoJet_mapping)".format(recojets_field))
     df = df.Define("filtered_jets_gen", "FCCAnalyses::ZHfunctions::filter_jets({}, HardP_to_GenJet_mapping)".format(genjets_field))
-    df = df.Define("inv_mass_reco", "FCCAnalyses::ZHfunctions::invariant_mass(filtered_jets)")
+    df = df.Define("inv_mass_reco", "FCCAnalyses::ZHfunctions::invariant_mass(filtered_jets, {})".format(expected_num_jets))
     #print("Inv mass reco", df.AsNumpy(["inv_mass_reco"])["inv_mass_reco"])
-    df = df.Define("inv_mass_gen", "FCCAnalyses::ZHfunctions::invariant_mass(filtered_jets_gen)")
+    df = df.Define("inv_mass_gen", "FCCAnalyses::ZHfunctions::invariant_mass(filtered_jets_gen, {})".format(expected_num_jets))
     df = df.Define("inv_mass_gen_all", "FCCAnalyses::ZHfunctions::invariant_mass({})".format(genjets_field))
     df = df.Define("inv_mass_reco_all", "FCCAnalyses::ZHfunctions::invariant_mass({})".format(recojets_field))
     #print("Inv mass gen", df.AsNumpy(["inv_mass_gen"])["inv_mass_gen"])

@@ -63,10 +63,10 @@ PLOT IDX options:
 3: events with invariant mass of the quarks < 100 GeV (what's happening?))
 4: events with invariant mass 123-127 GeV (Higgs mass window)
 5: events with invariant mass < 10 GeV
-
+6: all events
 '''
 
-PLOT_IDX = 5
+PLOT_IDX = 6
 
 gf = "GenJetDurhamN4"
 rf = "JetDurhamN4"
@@ -81,6 +81,8 @@ outputDir = "../../idea_fullsim/fast_sim/Histograms_ECM240/Event_displays_GenJet
 #outputDir = "../../idea_fullsim/fast_sim/histograms"
 
 def plot_filter(E_reco_over_true, n_unmatched, inv_mass_Higgs, idx=1):
+    if idx == 6:
+        return True
     if idx == 5:
         if inv_mass_Higgs < 10.0:
             return True

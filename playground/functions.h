@@ -81,7 +81,7 @@ vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the M
 }*/
 
 Vec_rp get_particles_from_mc2rp(vector<int> mc_part_idx, vector<int> mc2rp, Vec_rp reco_particles) {
-    // for each mc part idx, pick the appropriate reco particle
+    // For each mc part idx, pick the appropriate reco particle
     vector<rp> result;
     for (auto & mc_idx : mc_part_idx) {
         if(mc_idx >= 0 && mc_idx < mc2rp.size()) {
@@ -107,8 +107,7 @@ Vec_rp get_particles_from_mc2rp(vector<int> mc_part_idx, vector<int> mc2rp, Vec_
     return convert(result);
 }
 
-
-pair<vector<int>,vector<int>>  getRP2MC_index(ROOT::VecOps::RVec<int> recind, ROOT::VecOps::RVec<int> mcind, Vec_rp reco, Vec_mc mc) {
+pair<vector<int>,vector<int>> getRP2MC_index(ROOT::VecOps::RVec<int> recind, ROOT::VecOps::RVec<int> mcind, Vec_rp reco, Vec_mc mc) {
   vector<int> result;
   vector<int> result_MC2RP;
   result.resize(reco.size(),-1.);
@@ -644,7 +643,6 @@ std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_
             if (dRval < dR)
                 pairs.push_back({(int)i, (int)j, dRval * dRval});
         }
-
     }
     // Sort by smallest ΔR first
     std::sort(pairs.begin(), pairs.end(),
@@ -658,7 +656,6 @@ std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_
     }
     if (debug) {
         exit(1);
-
     }
     return result;
 }
@@ -689,15 +686,16 @@ Vec_rp stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
     return convert(result);
 }
 
-float invariant_mass(Vec_rp jets, bool debug = false) { // vec_rp could be either reco jets, gen jets, filtered jets, or just all reco particles
+float invariant_mass(Vec_rp jets, int expected_num_jets = -1) { // vec_rp could be either reco jets, gen jets, filtered jets, or just all reco particles
     TLorentzVector total_lv;
     total_lv.SetXYZM(0,0,0,0);
-    //rdfVerbose << "invariant mass computation ";
+    if (expected_num_jets > 0 && jets.size() != expected_num_jets) {
+        return -1.f;
+    }
     for(auto & j : jets) {
         TLorentzVector j_lv;
         j_lv.SetXYZM(j.momentum.x, j.momentum.y, j.momentum.z, j.mass);
         total_lv += j_lv;
-
     }
     return total_lv.M();
 }
@@ -747,6 +745,25 @@ std::vector<int> get_reco_truth_jet_mapping(Vec_rp reco_jets, Vec_rp gen_jets, f
             }
         }
         result.push_back(idx);
+    }
+    return result;
+}
+
+std::vector<float> get_E_reco_over_true_particles(Vec_rp reco_particles, Vec_mc mc_particles, vector<int> rp2mc_index) {
+    std::vector<float> result;
+    size_t n = reco_particles.size();
+    for (size_t i = 0; i < n; ++i) {
+        if (i >= rp2mc_index.size()) break;
+        int mc_idx = rp2mc_index[i];
+        if (mc_idx < 0 || static_cast<size_t>(mc_idx) >= mc_particles.size()) continue;
+        const auto &mc = mc_particles[mc_idx];
+        const float px = mc.momentum.x;
+        const float py = mc.momentum.y;
+        const float pz = mc.momentum.z;
+        const float m  = mc.mass;
+        const float e_true = std::sqrt(px*px + py*py + pz*pz + m*m);
+        if (e_true <= 0.f) continue;
+        result.push_back(reco_particles[i].energy / e_true);
     }
     return result;
 }
@@ -828,6 +845,7 @@ tuple<vector<float>, vector<float>, vector<float>, vector<float>> get_energy_rat
     vector<float> unmatched_reco_jet_E;
     vector<float> genjetE;
     vector<float> genjetEta;
+    vector<float> genjetCosTheta;
     for(size_t i = 0; i < reco_to_gen_matching.size(); ++i) {
         int idx = reco_to_gen_matching[i];
         if(idx >= 0 && idx < gen_jets.size()) {
