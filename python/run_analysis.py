@@ -8,6 +8,7 @@ import time
 import logging
 import importlib.util
 import string
+from inspect import signature
 
 import ROOT  # type: ignore
 import cppyy
@@ -67,13 +68,26 @@ def initialize(args, rdf_module, anapath: str):
         LOGGER.info('No multithreading enabled. Running in single thread...')
 
     # custom header files
-    include_paths = get_element(rdf_module, "includePaths")
+    include_paths = get_attribute(rdf_module, "includePaths", [])
     if include_paths:
-        ROOT.gInterpreter.ProcessLine(".O3")
         basepath = os.path.dirname(os.path.abspath(anapath)) + "/"
+        # Check if the include paths exist
+        for path in include_paths:
+            if not os.path.isfile(os.path.join(basepath, path)):
+                LOGGER.error('Include header file "%s" not found!'
+                             '\nAborting...', path)
+                sys.exit(3)
+
+        ROOT.gInterpreter.ProcessLine(".O2")
         for path in include_paths:
             LOGGER.info('Loading %s...', path)
-            ROOT.gInterpreter.Declare(f'#include "{basepath}/{path}"')
+            success = ROOT.gInterpreter.Declare(
+                f'#include "{os.path.join(basepath, path)}"'
+            )
+            if not success:
+                LOGGER.error('Error occurred when JIT compiling "%s" include '
+                             'header file!\nAborting...', path)
+                sys.exit(3)
 
     # check if analyses plugins need to be loaded before anything
     # still in use?
@@ -553,7 +567,11 @@ def run_histmaker(args, rdf_module, anapath):
             ROOT.RDF.Experimental.AddProgressBar(dframe)
 
         try:
-            res, hweight = graph_function(dframe, process_name)
+            n_params = len(signature(graph_function).parameters)
+            if n_params == 2:
+                res, hweight = graph_function(dframe, process_name)
+            else:
+                res, hweight = graph_function(dframe, process_name, args)
         except cppyy.gbl.std.runtime_error as err:
             LOGGER.error(err)
             LOGGER.error('During loading of the analysis an error occurred!'
@@ -672,11 +690,11 @@ def run(parser):
         args.remaining = []
 
     if not hasattr(args, 'command'):
-        LOGGER.error('Error occurred during subcommand routing!\nAborting...')
+        LOGGER.error('Error occurred during sub-command routing!\nAborting...')
         sys.exit(3)
 
     if args.command != 'run':
-        LOGGER.error('Unknow sub-command "%s"!\nAborting...')
+        LOGGER.error('Unknown sub-command "%s"!\nAborting...')
         sys.exit(3)
 
     # Work with absolute path of the analysis script
@@ -711,7 +729,7 @@ def run(parser):
             ROOT.Experimental.ELogLevel.kDebug+10)
         LOGGER.debug(verbosity)
 
-    # Load pre compiled analyzers
+    # Load the pre-compiled analyzers
     LOGGER.info('Loading analyzers from libFCCAnalyses...')
     ROOT.gSystem.Load("libFCCAnalyses")
     # Is this still needed?? 01/04/2022 still to be the case
