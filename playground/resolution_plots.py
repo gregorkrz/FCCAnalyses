@@ -5,6 +5,17 @@ from scipy.optimize import curve_fit
 from copy import copy
 import argparse
 import os
+from Colors import PROCESS_COLORS, HUMAN_READABLE_PROCESS_NAMES, LINE_STYLES
+import pickle
+
+import matplotlib
+matplotlib.rcParams.update({
+    #'font.sans-serif': "Arial",
+    'font.family': "sans-serif", # Ensure Matplotlib uses the sans-serif family
+    #"mathtext.fontset": "stix",           # serif math, similar to LaTeX Times
+    #"mathtext.default": "it",             # math variables italic by default
+    "font.size": 12
+})
 
 assert "FOLDER_NAME" in os.environ
 histograms_folder = os.environ.get("HISTOGRAMS_FOLDER_NAME", "Histograms_ECM240")
@@ -17,37 +28,6 @@ parser.add_argument("--folder", type=str, default="../../idea_fullsim/fast_sim/{
 parser.add_argument("--output", type=str, default=os.environ["FOLDER_NAME"])
 args = parser.parse_args()
 
-HUMAN_READABLE_PROCESS_NAMES = {
-    "p8_ee_ZH_6jet_ecm240": "Z(→qq)H(→WW→qqqq) (all)",
-    "p8_ee_ZH_bbbb_ecm240": "Z(→bb)H(→bb)",
-    "p8_ee_ZH_qqbb_ecm240": "Z(→qq)H(→bb)",
-    "p8_ee_ZH_vvbb_ecm240": "Z(→νν)H(→bb)",
-    "p8_ee_ZH_vvgg_ecm240": "Z(→νν)H(→gg)",
-    "p8_ee_ZH_vvqq_ecm240": "Z(→νν)H(→qq)",
-    "p8_ee_ZH_6jet_HF_ecm240": "Z(→bb)H(→WW→bbbb)",
-    "p8_ee_ZH_6jet_LF_ecm240": "Z(→qq)H(→WW→qqqq) (LF)",
-    "p8_ee_ZH_bbgg_ecm240": "Z(→bb)H(→gg)",
-    "p8_ee_ZH_qqgg_ecm240": "Z(→qq)H(→gg)",
-}
-
-PROCESS_COLORS = {
-    # 6 jets (blue)
-    "p8_ee_ZH_6jet_ecm240": "#0067A5",
-    "p8_ee_ZH_6jet_HF_ecm240": "#0082C8",
-    "p8_ee_ZH_6jet_LF_ecm240": "#339EDD",
-
-    # 4 jets (violet-magenta hues)
-    "p8_ee_ZH_bbbb_ecm240": "#B832A0",
-    "p8_ee_ZH_qqbb_ecm240": "#8A3BBF",
-    "p8_ee_ZH_bbgg_ecm240": "#C85FCF",
-    "p8_ee_ZH_qqgg_ecm240": "#D890E0",
-
-    # 2 jets (teal-green hues)
-    "p8_ee_ZH_vvbb_ecm240": "#1B9E77",
-    "p8_ee_ZH_vvgg_ecm240": "#33AF8A",
-    "p8_ee_ZH_vvqq_ecm240": "#7CCBA2",
-
-}
 ###########################################################################################
 # python3 resolution_plots.py --folder ../../idea_fullsim/fast_sim/histograms/greedy_matching --output comparison_multiple_jets_allJets_greedyMatching
 
@@ -82,9 +62,9 @@ for file in os.listdir(args.folder):
         processList[proc_name] = {'fraction': 1}
 
 ########################################################################################################
-
 binsE = [0, 40, 50, 60, 70, 80, 90, 100]
 bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
+bins_costheta = [-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1]
 
 # Define the Double-Sided Crystal Ball function
 def double_crystal_ball(x, mu, sigma, alphaL, nL, alphaR, nR, norm):
@@ -201,11 +181,12 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
         #ax_hist.step(edges[:-1], y, where="post", label=f"[{bins[i]}, {bins[i+1]}] GeV")
         bin_widths = np.diff(edges)
         area = np.sum(y * bin_widths)
+        n_jets_in_bin = np.sum(y)
         if area != 0:
             y_normalized = y / area
         else:
             y_normalized = y
-        ax_hist.step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV")
+        ax_hist.step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV (N={int(n_jets_in_bin)})")
         bins_to_histograms[i] = [y_normalized, edges]
         yc = copy(y)
         if sigma_method == "std68":
@@ -276,7 +257,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             raise ValueError(f"Unknown sigma method: {sigma_method}")
         lo_hi_MPV.append([low, high, MPV])
         bin_mid = 0.5 * (bins[i] + bins[i + 1])
-        if not np.isnan(bin_mid) and not np.isnan(std68):
+        if not np.isnan(bin_mid) and not np.isnan(std68) and n_jets_in_bin > 10000: # more than 10k statistics for a good fit with the fine binning that we are using
             bin_mid_points.append(bin_mid)
             sigmaEoverE.append(std68 / MPV)
             responses.append(MPV)
@@ -299,12 +280,16 @@ def get_func_fit(mid_points, Rs):
     # return a smooth function throughout mid_points
     xs = np.linspace(min(mid_points), max(mid_points), 100)
     ys = resolution_func(xs, *popt)
-    return xs, ys, popt
+    return xs, ys, popt, pcov
+
+process_popt_storage = {} # store the covariance matrix and optimal parameters for each process
 
 for method in ["gaussian_fit", "std68", "RMS", "interquantile_range"]:
     print("-----------------------------------------------------------")
     print("Using sigma method:", method)
-    fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+    # fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+    # the same as above but make it (10, 6) and make the upper plot 2/3 and lower plot 1/3 of the height
+    fig, ax = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
     for proc_idx, process in enumerate(sorted(list(processList.keys()))):
         bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms, mpv_lo_hi = get_result_for_process(process, sigma_method=method)
         if process not in method_low_high_mid_point_storage:
@@ -317,20 +302,26 @@ for method in ["gaussian_fit", "std68", "RMS", "interquantile_range"]:
                 "../../idea_fullsim/fast_sim/{}/{}/bins_{}_{}.pdf".format(histograms_folder, os.environ["FOLDER_NAME"], process, method)
             )
         clr = PROCESS_COLORS.get(process, f"C{proc_idx}")
-        ax[0].plot(bin_mid_points, sigmaEoverE, "x", label=HUMAN_READABLE_PROCESS_NAMES[process], color=clr)
-        # get_func_fit #
-        xs, ys, popt = get_func_fit(bin_mid_points, sigmaEoverE)
+        xs, ys, popt, pcov = get_func_fit(bin_mid_points, sigmaEoverE)
         print(f"Fitted parameters for {process} using {method}: a={popt[0]:.4f}, b={popt[1]:.4f}")
-        ax[0].plot(xs, ys, "-", color=clr)
+        if process not in process_popt_storage:
+            process_popt_storage[process] = {}
+        process_popt_storage[process][method] = (popt, pcov, xs, ys)
+        ax[0].plot(bin_mid_points, sigmaEoverE, "x", label=HUMAN_READABLE_PROCESS_NAMES[process] + f" A={round(popt[0], 2)} B={round(popt[1], 2)}", color=clr)
+        ax[0].plot(xs, ys, LINE_STYLES[process], color=clr, label=None)
         ax[1].plot(bin_mid_points, resp, ".--", label=process, color=clr)
     ax[0].legend()
-    ax[0].set_xlabel('Jet True Energy [GeV]')
+    ax[0].set_xlabel('$E_{true}$ [GeV]')
     ax[0].set_ylabel(r'$\sigma_E / E$')
-    ax[0].set_title('Jet Energy Resolution vs Jet Energy')
+    ax[0].set_title(r'Jet Energy Resolution ($\frac{A}{\sqrt{E}}$ ⊕ $B$ )')
     ax[0].grid(True, alpha=0.3)
+    ax[1].set_ylabel("Response")
+    ax[1].set_xlabel('$E_{true}$ [GeV]')
+    ax[1].grid()
     fig.tight_layout()
     fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_{}.pdf".format(histograms_folder, args.output, method))
 
+pickle.dump(process_popt_storage, open("../../idea_fullsim/fast_sim/{}/{}/energy_fit_params_per_process.pkl".format(histograms_folder, args.output), "wb"))
 method_to_color = {"std68": "blue", "RMS": "orange", "interquantile_range": "green", "DSCB": "red", "gaussian_fit": "purple"}
 ### Plot each bin on a separate plot, but different processes on same plot
 fig, ax = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
@@ -370,7 +361,8 @@ fig_bins.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison_f
 
 
 for method in ["std68", "RMS", "interquantile_range", "DSCB", "gaussian_fit"]:
-    fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+    #fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+    fig, ax = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
     for process in sorted(list(processList.keys())):
         bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _ = get_result_for_process(process, bins=bins_eta,
                                                                                          suffix="eta_",
@@ -378,18 +370,50 @@ for method in ["std68", "RMS", "interquantile_range", "DSCB", "gaussian_fit"]:
         if method == "std68":
             fig_histograms.tight_layout()
             fig_histograms.savefig(
-            "../../idea_fullsim/fast_sim/{}/{}/bins_eta_{}.pdf".format(histograms_folder, args.output, process)
+                "../../idea_fullsim/fast_sim/{}/{}/bins_eta_{}.pdf".format(histograms_folder, args.output, process)
             )
-        ax[0].plot(bin_mid_points, sigmaEoverE, ".--", label=process)
-        ax[1].plot(bin_mid_points, resp, ".--", label=process)
+        ax[0].plot(bin_mid_points, sigmaEoverE, LINE_STYLES[process], label=HUMAN_READABLE_PROCESS_NAMES[process], color=PROCESS_COLORS[process])
+        ax[1].plot(bin_mid_points, resp, LINE_STYLES[process], label=HUMAN_READABLE_PROCESS_NAMES[process], color=PROCESS_COLORS[process])
     ax[0].legend()
-    ax[0].set_xlabel('Jet Eta [GeV]')
+    ax[0].set_xlabel('$\eta$')
+    ax[0].set_ylabel(r'$\sigma_E / E$')
+    ax[0].set_title('Jet Energy Resolution vs $\Theta$')
+    ax[0].grid(True, alpha=0.3)
+    ax[1].grid(True, alpha=0.3)
+    ax[1].set_title("Energy Response vs $\Theta$")
+    ax[1].set_xlabel('$\eta$')
+    ax[1].set_ylabel("Response")
+    ax[1].set_xlabel('$\eta$')
+    ax[1].grid()
+    fig.tight_layout()
+    fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_Eta_resolution_data_points_{}.pdf".format(histograms_folder, args.output, method))
+
+for method in ["std68", "RMS", "interquantile_range", "DSCB", "gaussian_fit"]:
+    #fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+    fig , ax  = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
+    for process in sorted(list(processList.keys())):
+        bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _ = get_result_for_process(process, bins=bins_costheta,
+                                                                                         suffix="costheta_",
+                                                                                         sigma_method=method)
+        if method == "std68":
+            fig_histograms.tight_layout()
+            fig_histograms.savefig(
+            "../../idea_fullsim/fast_sim/{}/{}/bins_CosTheta_{}.pdf".format(histograms_folder, args.output, process)
+            )
+        ax[0].plot(bin_mid_points, sigmaEoverE, "x", color=PROCESS_COLORS[process])
+        ax[1].plot(bin_mid_points, resp, "x", color=PROCESS_COLORS[process])
+        ax[0].plot(bin_mid_points, sigmaEoverE, LINE_STYLES[process], label=HUMAN_READABLE_PROCESS_NAMES[process], color=PROCESS_COLORS[process])
+        ax[1].plot(bin_mid_points, resp, LINE_STYLES[process], label=HUMAN_READABLE_PROCESS_NAMES[process], color=PROCESS_COLORS[process])
+    ax[0].legend()
+    ax[0].set_xlabel(r'cos $\theta$ [GeV]')
     ax[0].set_ylabel(r'$\sigma_E / E$')
     ax[0].set_title('Jet Energy Resolution vs Jet Energy')
     ax[0].grid(True, alpha=0.3)
     ax[1].grid(True, alpha=0.3)
-    ax[1].set_title("Energy Response vs Energy")
-    ax[1].set_xlabel('Jet Eta [GeV]')
-    ax[1].set_ylabel("$\sigma_E / E$")
+    ax[1].set_title("Energy Resolution vs Jet Angle")
+    ax[1].set_xlabel(r'cos $\theta$ [GeV]')
+    ax[1].set_ylabel("Response")
+    ax[1].set_xlabel(r'cos $\theta$ [GeV]')
+    ax[1].grid()
     fig.tight_layout()
-    fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_Eta_resolution_data_points_{}.pdf".format(histograms_folder, args.output, method))
+    fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_CosTheta_resolution_data_points_{}.pdf".format(histograms_folder, args.output, method))

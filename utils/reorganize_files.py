@@ -3,6 +3,8 @@ import shutil
 
 # Example dictionary mapping folder names to new names
 
+
+
 #### FOR AK
 folder_map = {
     "GenJetDurhamFastJet_ISR": "Durham",
@@ -29,6 +31,7 @@ folder_map = {
     "PFDurham_ISR": "Durham_PF",
     "CaloJetDurham_ISR": "Durham_Calo"
 }
+
 '''
 folder_map = {
     "CaloJetDurham_ISR": "CaloJets_Durham",
@@ -40,10 +43,20 @@ folder_map = {
 # GenJetDurhamFastJet_ISR_AK  GenJetDurhamFastJet_ISR_AK14  GenJetDurhamFastJet_NoISR
 # GenJetDurhamFastJet_NoISR_AK10  GenJetDurhamFastJet_NoISR_AK6
 
+## 10 November 2025
+folder_map = {
+    #"CaloJetDurham_ISR": "Calo Durham",
+    "PFDurham_ISR": "PF Durham",
+    "ISR_EEAK4": "AK4",
+    "ISR_EEAK6": "AK6",
+    "ISR_EEAK8": "AK8",
+    "ISR_EEAK10": "AK10",
+    "ISR_EEAK12": "AK12"
+}
 
 # Base directory (optional, use '.' if script is in the same place)
-base_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240"
-target_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240/Calo_vs_PF_and_AK_organized"
+base_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240_20251105"
+target_dir = "/sdf/home/g/gregork/idea_fullsim/fast_sim/Histograms_ECM240_20251105/Jet_Algorithm_Comparison_NoCaloJets"
 
 # Loop through each folder and its corresponding new name
 for folder_name, new_name in folder_map.items():

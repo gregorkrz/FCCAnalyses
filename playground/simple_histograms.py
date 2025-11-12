@@ -3,10 +3,20 @@ import os
 import ROOT
 import matplotlib.pyplot as plt
 import numpy as np
+from Colors import PROCESS_COLORS, HUMAN_READABLE_PROCESS_NAMES, LINE_STYLES
 
 assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
 assert "FOLDER_NAME" in os.environ
 assert "HISTOGRAMS_FOLDER_NAME" in os.environ
+
+import matplotlib
+matplotlib.rcParams.update({
+    #'font.sans-serif': "Arial",
+    'font.family': "sans-serif", # Ensure Matplotlib uses the sans-serif family
+    #"mathtext.fontset": "stix", # serif math, similar to LaTeX Times
+    #"mathtext.default": "it",   # math variables italic by default
+    "font.size": 12
+})
 
 inputDir = "../../idea_fullsim/fast_sim/{}/{}".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
 # Get all ROOT files in the directory
@@ -16,7 +26,7 @@ if "p8_ee_ZH_llbb_ecm365.root" in root_files:
     root_files.remove("p8_ee_ZH_llbb_ecm365.root") # Quick fix we dont need that file for now
 
 plt.figure(figsize=(8, 6))
-for fname in root_files:
+for fname in sorted(root_files):
     file_path = os.path.join(inputDir, fname)
     f = ROOT.TFile.Open(file_path)
     if not f or f.IsZombie():
@@ -40,12 +50,13 @@ for fname in root_files:
         print(f"Warning: {fname} histogram integral = 0")
     # Plot
     label = os.path.splitext(fname)[0]
-    plt.plot(x_vals, y_vals, label=label)
+    #plt.plot(x_vals, y_vals, "x", label=HUMAN_READABLE_PROCESS_NAMES[label], color=PROCESS_COLORS[label])
+    plt.plot(x_vals, y_vals, linestyle=LINE_STYLES[label], color=PROCESS_COLORS[label])
     f.Close()
-plt.xlabel("E_reco / E_true")
+plt.xlabel("$E_{reco} / E_{true}")
 plt.xlim([0.9, 1.1])
 plt.ylabel("Normalized Entries")
-plt.title("Comparison of h_fancy histograms")
+#plt.title()
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
@@ -119,7 +130,6 @@ for fname in root_files:
             linewidth=1,
             label=f"{label} fit μ={mu:.3f}, σ={sigma:.3f}",
         )
-        print("PLOTTING ")
         ax[1].plot(
             x_dense,
             gauss(x_dense, A, mu, sigma),
@@ -174,8 +184,8 @@ plt.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid_logy.pd
 #plt.show()
 
 # There are two histograms: h_genjet_all_energies and h_genjet_matched_energies. Make a plot with the ratio (so basically efficiency) of matched over all vs energy
-plt.figure(figsize=(8, 6))
-for fname in root_files:
+plt.figure(figsize=(6, 6))
+for fname in sorted(root_files):
     file_path = os.path.join(inputDir, fname)
     f = ROOT.TFile.Open(file_path)
     if not f or f.IsZombie():
@@ -191,7 +201,9 @@ for fname in root_files:
     n_bins = hist_all.GetNbinsX()
     x_vals = np.array([hist_all.GetBinCenter(i) for i in range(1, n_bins + 1)])
     # Remove the xvals larger than 175
-    filt = x_vals <= 100
+    #filt = (x_vals <= 100) & (x_vals >= 20)
+    filt = np.array([hist_all.GetBinContent(i) for i in range(1, n_bins + 1)]) > 1000 # Cut out the low statistics bins
+    filt = filt & (x_vals <= 100)
     x_vals = x_vals[filt]
     y_all = np.array([hist_all.GetBinContent(i) for i in range(1, n_bins + 1)])[filt]
     y_matched = np.array([hist_matched.GetBinContent(i) for i in range(1, n_bins + 1)])[filt]
@@ -201,23 +213,23 @@ for fname in root_files:
         ratio[~np.isfinite(ratio)] = 0  # set inf and NaN to 0
     # Plot
     label = os.path.splitext(fname)[0]
-    plt.plot(x_vals, ratio, label=label)
+    plt.plot(x_vals, ratio, LINE_STYLES[label], label=HUMAN_READABLE_PROCESS_NAMES[label], color=PROCESS_COLORS[label])
+    plt.plot(x_vals, ratio, "x", color=PROCESS_COLORS[label])
     f.Close()
 
-plt.xlabel("Gen Jet Energy [GeV]")
-plt.ylabel("Matching Efficiency (Matched / All)")
-plt.ylim([0.95, 1.02])
-plt.title("Gen Jet Matching Efficiency vs. Energy")
-plt.legend()
+plt.xlabel("$E_{true}$ [GeV]")
+plt.ylabel("Matching Efficiency (Matched/ All)")
+#plt.ylim([0.80, 1.001])
+plt.title("Jet Matching Efficiency vs. Energy")
+plt.legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=10, title_fontsize=8)
 plt.grid(True)
 plt.tight_layout()
 plt.savefig("../../idea_fullsim/fast_sim/{}/{}/matching_efficiency_vs_energy.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 plt.clf()
 
 ## Produce the Higgs mass plots similar to the ones in the fccanalysis plots file but easier to manipulate
-
 fig, ax = plt.subplots(len(root_files), 2,  figsize=(8, 2.7 * len(root_files)))
-fig_mH_all, ax_mH_all = plt.subplots(1, 2, figsize=(8, 5)) # plot mH reco of all root files on the same plot, left side fully and right side zoomed into the peak
+fig_mH_all, ax_mH_all = plt.subplots(1, 2, figsize=(8, 6)) # plot mH reco of all root files on the same plot, left side fully and right side zoomed into the peak
 
 figlog, axlog = plt.subplots(len(root_files), 2, figsize=(8, 2.7 * len(root_files)))
 
@@ -226,7 +238,7 @@ if len(root_files) == 1:
     axlog = np.array([axlog])
 
 # Higgs mass histogram
-for i, fname in enumerate(root_files):
+for i, fname in enumerate(sorted(root_files)):
     file_path = os.path.join(inputDir, fname)
     f = ROOT.TFile.Open(file_path)
     if not f or f.IsZombie():
@@ -266,8 +278,6 @@ for i, fname in enumerate(root_files):
         y_vals_gen = y_vals_gen / integral / step_size_gen
     else:
         print(f"Warning: {fname} histogram integral = 0")
-
-
     print("Sum of y vals now", np.sum(y_vals_gen))
     integral_gt = np.sum(y_vals_gt)
     step_size_gt = x_vals_gt[1] - x_vals_gt[0]
@@ -290,8 +300,10 @@ for i, fname in enumerate(root_files):
         y_vals_reco = y_vals_reco / step_size_reco  # Normalize to bin width
     else:
         print(f"Warning: {fname} histogram integral = 0")
-    ax_mH_all[0].step(x_vals_reco, y_vals_reco, where='mid', label=label, linestyle='solid')
-    ax_mH_all[1].step(x_vals_reco, y_vals_reco, where='mid', label=label, linestyle='solid')
+    #ax_mH_all[0].step(x_vals_reco, y_vals_reco, where='mid', label=label, linestyle='solid')
+    #ax_mH_all[1].step(x_vals_reco, y_vals_reco, where='mid', label=label, linestyle='solid')
+    ax_mH_all[0].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle=LINE_STYLES[label], label=HUMAN_READABLE_PROCESS_NAMES[label])
+    ax_mH_all[1].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle=LINE_STYLES[label], label=HUMAN_READABLE_PROCESS_NAMES[label])
     #ax.plot(x_vals_reco, y_vals_reco, label=label + " (reco)", linestyle='solid')
     #ax.plot(x_vals_gen, y_vals_gen, label=label + " (gen)", linestyle='dashed')
     for k in range(2):
@@ -307,6 +319,8 @@ for i, fname in enumerate(root_files):
         ax[i, k].legend()
         axlog[i, k].set_title(label)
         axlog[i, k].set_yscale("log")
+        axlog[i, k].set_xlabel("$m_H$ [GeV]")
+        axlog[i, k].set_ylabel("Events (norm.)")
         ax[i, k].set_title(label)
     ax[i, 1].set_xlim([115, 135])
     axlog[i, 1].set_xlim([115, 135])
@@ -319,14 +333,14 @@ plog = "../../idea_fullsim/fast_sim/{}/{}/log_Higgs_mass_reco_vs_gen.pdf".format
 phiggs = "../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_reco_overlaid_mH_reco_normalized.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
 
 
-ax_mH_all[0].set_xlabel("m_H [GeV]")
-ax_mH_all[1].set_xlabel("m_H [GeV]")
-ax_mH_all[0].set_ylabel("Normalized Entries / GeV")
-ax_mH_all[1].set_ylabel("Normalized Entries / GeV")
+ax_mH_all[0].set_xlabel("$m_H$ [GeV]")
+ax_mH_all[1].set_xlabel("$m_H$ [GeV]")
+ax_mH_all[0].set_ylabel("Normalized Events")
+ax_mH_all[1].set_ylabel("Normalized Events")
 ax_mH_all[1].set_xlim([115, 135])
 ax_mH_all[0].grid()
 ax_mH_all[1].grid()
-ax_mH_all[0].legend()
+ax_mH_all[0].legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=12, title_fontsize=10)
 #ax_mH_all[1].legend()
 
 fig_mH_all.tight_layout()

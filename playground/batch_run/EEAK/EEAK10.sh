@@ -8,8 +8,7 @@ export JET_ALGO=EEAK
 export AK_RADIUS=1.0
 export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240_20251105
 
-
-fccanalysis run histmaker_jetE_filter_GT.py
+#fccanalysis run histmaker_jetE_filter_GT.py
 python3 simple_histograms.py
 python3 resolution_plots.py
 fccanalysis plots plots_jetE_alljets_Compare_AK.py

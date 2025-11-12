@@ -25,20 +25,20 @@ processList = {
     #'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
     ############## SINGLE HIGGS PROCESSES ##############
     # 6 jets
-    #"p8_ee_ZH_6jet_ecm240": {'fraction': frac},
-    "p8_ee_ZH_6jet_HF_ecm240": {'fraction': frac},
-    "p8_ee_ZH_6jet_LF_ecm240": {'fraction': frac},
+    "p8_ee_ZH_6jet_ecm240": {'fraction': frac},
+    #"p8_ee_ZH_6jet_HF_ecm240": {'fraction': frac},
+    #"p8_ee_ZH_6jet_LF_ecm240": {'fraction': frac},
 
     # 4 jets
-    #"p8_ee_ZH_qqbb_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_bbbb_ecm240": {'fraction': frac},
-    "p8_ee_ZH_bbgg_ecm240": {'fraction': frac},
-    "p8_ee_ZH_qqgg_ecm240": {'fraction': frac},
+    "p8_ee_ZH_qqbb_ecm240": {'fraction': frac},
+    "p8_ee_ZH_bbbb_ecm240": {'fraction': frac},
+    #"p8_ee_ZH_bbgg_ecm240": {'fraction': frac},
+    #"p8_ee_ZH_qqgg_ecm240": {'fraction': frac},
 
     # 2 jets
-    #"p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_vvqq_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_vvbb_ecm240": {'fraction': frac},
+    "p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
+    "p8_ee_ZH_vvqq_ecm240": {'fraction': frac},
+    "p8_ee_ZH_vvbb_ecm240": {'fraction': frac},
 
 
     ##############2 jets: other detectors study #################
@@ -206,10 +206,9 @@ def build_graph(df, dataset):
     df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(RecoJetVariable))
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(GenJetVariable))
     #df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
-    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, 1.0, false)".format(RecoJetVariable, GenJetVariable))
+    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, 0.3, false)".format(RecoJetVariable, GenJetVariable))
     df = df.Define("njets", "{}.size()".format(RecoJetVariable))
     df = df.Define("ngenjets", "{}.size()".format(GenJetVariable))
-
     df = df.Define("distance_between_genjets", "FCCAnalyses::ZHfunctions::get_jet_distances({})".format(GenJetVariable))
     df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances({})".format(RecoJetVariable))
     df = df.Define("min_distance_between_genjets", "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances({}))".format(format(GenJetVariable)))
@@ -266,7 +265,7 @@ def build_graph(df, dataset):
     df = get_Higgs_mass_with_truth_matching(df, genjets_field=GenJetVariable, recojets_field=RecoJetVariable, define_mc_quark_idx=False, expected_num_jets=nJets_from_H_process_list[dataset])
     #print("MC part idx", df.AsNumpy(["MC_part_idx"])["MC_part_idx"][:5])
     ##################################################################################################################
-    df = df.Define("matching_reco_with_partons", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, 1.0, false)".format(RecoJetVariable, "MC_part_asjets"))
+    df = df.Define("matching_reco_with_partons", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, 0.3, false)".format(RecoJetVariable, "MC_part_asjets"))
     print("Matching reco with partons:", df.AsNumpy(["matching_reco_with_partons"])["matching_reco_with_partons"][:5])
     df = df.Define("matching_proc_with_partons",
                    "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(matching_reco_with_partons, {}, {})".format(RecoJetVariable, "MC_part_asjets"))

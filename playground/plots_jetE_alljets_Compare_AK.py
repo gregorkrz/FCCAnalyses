@@ -245,7 +245,7 @@ hists["h_E_all_reco_jets"] = {
 
 hists["h_E_all_gen_jets"] = {
     "output": "h_E_all_genjets",
-    "logy": False,
+    "logy": True,
     "stack": False,
     "xtitle": "gen jet E",
     "ytitle": "Events"
