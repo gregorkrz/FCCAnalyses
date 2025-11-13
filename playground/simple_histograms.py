@@ -25,7 +25,7 @@ root_files = [f for f in os.listdir(inputDir) if f.endswith(".root")]
 if "p8_ee_ZH_llbb_ecm365.root" in root_files:
     root_files.remove("p8_ee_ZH_llbb_ecm365.root") # Quick fix we dont need that file for now
 
-plt.figure(figsize=(8, 6))
+fig, ax = plt.subplots(3, 1, figsize=(6, 9)) #
 for fname in sorted(root_files):
     file_path = os.path.join(inputDir, fname)
     f = ROOT.TFile.Open(file_path)
@@ -51,10 +51,10 @@ for fname in sorted(root_files):
     # Plot
     label = os.path.splitext(fname)[0]
     #plt.plot(x_vals, y_vals, "x", label=HUMAN_READABLE_PROCESS_NAMES[label], color=PROCESS_COLORS[label])
-    plt.plot(x_vals, y_vals, linestyle=LINE_STYLES[label], color=PROCESS_COLORS[label])
+    plt.plot(x_vals, y_vals, linestyle=LINE_STYLES[label], color=PROCESS_COLORS[label], label=HUMAN_READABLE_PROCESS_NAMES[label])
     f.Close()
 plt.xlabel("$E_{reco} / E_{true}")
-plt.xlim([0.9, 1.1])
+plt.xlim([0.8, 1.2])
 plt.ylabel("Normalized Entries")
 #plt.title()
 plt.legend()
@@ -63,7 +63,7 @@ plt.tight_layout()
 plt.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 
 # Make the same plot but with a thin line, only for nu nu q q and with xlim from -0.6 to +0.6
-fig, ax = plt.subplots(2, 1, figsize=(5, 10))
+fig, ax = plt.subplots(2, 1, figsize=(6, 8.5))
 for fname in root_files:
     file_path = os.path.join(inputDir, fname)
     f = ROOT.TFile.Open(file_path)
@@ -128,14 +128,14 @@ for fname in root_files:
             gauss(x_dense, A, mu, sigma),
             linestyle="--",
             linewidth=1,
-            label=f"{label} fit μ={mu:.3f}, σ={sigma:.3f}",
+            #label=f"{label} fit μ={mu:.3f}, σ={sigma:.3f}",
         )
         ax[1].plot(
             x_dense,
             gauss(x_dense, A, mu, sigma),
             linestyle="--",
             linewidth=1,
-            label=f"{label} fit μ={mu:.3f}, σ={sigma:.3f}",
+            #label=f"{label} fit μ={mu:.3f}, σ={sigma:.3f}",
         )
     else:
         print(f"Not enough points in [0.8, 1.2] for {fname} to fit.")
@@ -173,14 +173,14 @@ for fname in root_files:
     f.Close()
 
 fig.tight_layout()
-fig.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid_vvgg.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+fig.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid_v2.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 #plt.show()
 
 # also plot a log y version
-plt.yscale("log")
-plt.ylim(1e-5, 1)
-plt.xlim([0.5, 1.5])
-plt.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid_logy.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+#plt.yscale("log")
+#plt.ylim(1e-5, 1)
+#plt.xlim([0.5, 1.5])
+#plt.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid_logy.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 #plt.show()
 
 # There are two histograms: h_genjet_all_energies and h_genjet_matched_energies. Make a plot with the ratio (so basically efficiency) of matched over all vs energy

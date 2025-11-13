@@ -98,7 +98,7 @@ def double_crystal_ball(x, mu, sigma, alphaL, nL, alphaR, nR, norm):
 def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"):
     # Sigma methods: std68, RMS, interquantile_range
     f = ROOT.TFile.Open(os.path.join(args.folder, "{}.root".format(procname)))
-    fig_hist, ax_hist = plt.subplots(figsize=(5, 5))
+    fig_hist, ax_hist = plt.subplots(2, 1, figsize=(8, 6))# stack two plots vertically
     def get_std68(theHist, bin_edges, percentage=0.683, epsilon=0.001):
         # theHist, bin_edges = np.histogram(data_for_hist, bins=bins, density=True)
         s =  np.sum(theHist * np.diff(bin_edges))
@@ -186,7 +186,8 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             y_normalized = y / area
         else:
             y_normalized = y
-        ax_hist.step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV (N={int(n_jets_in_bin)})")
+        ax_hist[0].step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV (N={int(n_jets_in_bin)})")
+        ax_hist[1].step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV (N={int(n_jets_in_bin)})")
         bins_to_histograms[i] = [y_normalized, edges]
         yc = copy(y)
         if sigma_method == "std68":
@@ -264,9 +265,13 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             print(f"Bin [{bins[i]}, {bins[i+1]}]: {method} = {std68:.4f}, low = {low:.4f}, high = {high:.4f}, MPV={MPV},N={np.sum(yc)}")
         else:
             print("NaN encountered in bin mid-point calculation.")
-    ax_hist.legend()
-    ax_hist.set_xlabel(r'$E_{reco} / E_{true}$')
-    ax_hist.set_ylabel('Entries')
+    ax_hist[0].legend()
+    ax_hist[0].set_xlabel(r'$E_{reco} / E_{true}$')
+    ax_hist[0].set_ylabel('Entries')
+    ax_hist[1].legend()
+    ax_hist[1].set_xlabel(r'$E_{reco} / E_{true}$')
+    ax_hist[1].set_ylabel('Entries')
+    ax_hist[1].set_xlim([0.85, 1.15])
     return bin_mid_points, sigmaEoverE, fig_hist, responses, bins_to_histograms, lo_hi_MPV
 
 bin_to_histograms_storage = {}
@@ -284,9 +289,16 @@ def get_func_fit(mid_points, Rs):
 
 process_popt_storage = {} # store the covariance matrix and optimal parameters for each process
 
-for method in ["gaussian_fit", "std68", "RMS", "interquantile_range"]:
+fig_resolution_per_process, ax_resolution_per_process = plt.subplots(len(processList), 2, figsize=(8, 4 * len(processList)), sharex=True)
+# left column: resolution, right column: response. Comparison of gaussian_fit and std68
+method_to_color = {
+    "std68": "blue",
+    "gaussian_fit": "purple"
+}
+
+for method in ["gaussian_fit", "std68"]:
     print("-----------------------------------------------------------")
-    print("Using sigma method:", method)
+    print("Using peak width method:", method)
     # fig, ax = plt.subplots(2, 1, figsize=(8, 6))
     # the same as above but make it (10, 6) and make the upper plot 2/3 and lower plot 1/3 of the height
     fig, ax = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
@@ -307,9 +319,22 @@ for method in ["gaussian_fit", "std68", "RMS", "interquantile_range"]:
         if process not in process_popt_storage:
             process_popt_storage[process] = {}
         process_popt_storage[process][method] = (popt, pcov, xs, ys)
-        ax[0].plot(bin_mid_points, sigmaEoverE, "x", label=HUMAN_READABLE_PROCESS_NAMES[process] + f" A={round(popt[0], 2)} B={round(popt[1], 2)}", color=clr)
-        ax[0].plot(xs, ys, LINE_STYLES[process], color=clr, label=None)
+        ax[0].plot(bin_mid_points, sigmaEoverE, "x", color=clr)
+        ax[0].plot(xs, ys, LINE_STYLES[process], color=clr, label=HUMAN_READABLE_PROCESS_NAMES[process] + f" A={round(popt[0], 2)} B={round(popt[1], 2)}")
         ax[1].plot(bin_mid_points, resp, ".--", label=process, color=clr)
+        if method in method_to_color:
+            ax_resolution_per_process[proc_idx, 0].plot(bin_mid_points, sigmaEoverE, "x", label=method + f" A={round(popt[0], 2)} B={round(popt[1], 2)}", color=method_to_color[method])
+            ax_resolution_per_process[proc_idx, 0].plot(xs, ys, LINE_STYLES[process], color=method_to_color[method])
+            ax_resolution_per_process[proc_idx, 0].set_title(HUMAN_READABLE_PROCESS_NAMES[process])
+            ax_resolution_per_process[proc_idx, 1].plot(bin_mid_points, resp, ".--", label=method, color=method_to_color[method])
+        ax_resolution_per_process[proc_idx, 0].set_xlabel('$E_{true}$ [GeV]')
+        ax_resolution_per_process[proc_idx, 0].set_ylabel(r'$\sigma_E / E$')
+        ax_resolution_per_process[proc_idx, 1].set_xlabel('$E_{true}$ [GeV]')
+        ax_resolution_per_process[proc_idx, 1].set_ylabel("Response")
+        # Also turn legend and grid on
+        ax_resolution_per_process[proc_idx, 0].legend()
+        ax_resolution_per_process[proc_idx, 0].grid(True)
+        ax_resolution_per_process[proc_idx, 1].grid(True)
     ax[0].legend()
     ax[0].set_xlabel('$E_{true}$ [GeV]')
     ax[0].set_ylabel(r'$\sigma_E / E$')
@@ -320,6 +345,8 @@ for method in ["gaussian_fit", "std68", "RMS", "interquantile_range"]:
     ax[1].grid()
     fig.tight_layout()
     fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_{}.pdf".format(histograms_folder, args.output, method))
+fig_resolution_per_process.tight_layout()
+fig_resolution_per_process.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_per_process_comparison.pdf".format(histograms_folder, args.output))
 
 pickle.dump(process_popt_storage, open("../../idea_fullsim/fast_sim/{}/{}/energy_fit_params_per_process.pkl".format(histograms_folder, args.output), "wb"))
 method_to_color = {"std68": "blue", "RMS": "orange", "interquantile_range": "green", "DSCB": "red", "gaussian_fit": "purple"}
@@ -404,6 +431,7 @@ for method in ["std68", "RMS", "interquantile_range", "DSCB", "gaussian_fit"]:
         ax[1].plot(bin_mid_points, resp, "x", color=PROCESS_COLORS[process])
         ax[0].plot(bin_mid_points, sigmaEoverE, LINE_STYLES[process], label=HUMAN_READABLE_PROCESS_NAMES[process], color=PROCESS_COLORS[process])
         ax[1].plot(bin_mid_points, resp, LINE_STYLES[process], label=HUMAN_READABLE_PROCESS_NAMES[process], color=PROCESS_COLORS[process])
+
     ax[0].legend()
     ax[0].set_xlabel(r'cos $\theta$ [GeV]')
     ax[0].set_ylabel(r'$\sigma_E / E$')

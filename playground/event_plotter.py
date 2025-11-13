@@ -12,7 +12,32 @@ from jet_helper import get_jet_vars
 
 ### TEMPORARILY ###
 #inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/20251028_only1root"
+
+'''
+
+PLOT IDX options:
+
+1: the slice of the E_reco/E_true around 0.9
+2: events with unmatched reco-to-gen jets
+3: events with invariant mass of the quarks < 100 GeV (what's happening?))
+4: events with invariant mass 123-127 GeV (Higgs mass window)
+5: events with invariant mass < 10 GeV
+6: all events
+
+'''
+
+PLOT_IDX = 6
+
 inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/Tiny_IDEA_20251105/"
+outputDir = "../../idea_fullsim/fast_sim/Histograms_20251112_Debug/EventDisplays_AK6_" + str(PLOT_IDX)
+
+gf = "GenJetDurhamN4"
+rf = "JetDurhamN4"
+
+if PLOT_IDX == 3 or PLOT_IDX == 4 or PLOT_IDX == 5 or PLOT_IDX == 6:
+    # Use the jets computed on-the-fly with FastJet
+    gf = "GenJetFastJet"
+    rf = "RecoJetFastJet"
 
 nJets_processList = {
     "p8_ee_ZH_qqbb_ecm240": 4,
@@ -76,31 +101,8 @@ includePaths = ["functions.h", "utils.h"]
 #inputDir = "../../idea_fullsim/fast_sim/outputs"
 
 
-'''
-PLOT IDX options:
-
-1: the slice of the E_reco/E_true around 0.9
-2: events with unmatched reco-to-gen jets
-3: events with invariant mass of the quarks < 100 GeV (what's happening?))
-4: events with invariant mass 123-127 GeV (Higgs mass window)
-5: events with invariant mass < 10 GeV
-6: all events
-'''
-
-PLOT_IDX = 6
-
-gf = "GenJetDurhamN4"
-rf = "JetDurhamN4"
-
-if PLOT_IDX == 3 or PLOT_IDX == 4 or PLOT_IDX == 5 or PLOT_IDX == 6:
-    # Use the jets computed on-the-fly with FastJet
-    gf = "GenJetFastJet"
-    rf = "RecoJetFastJet"
 
 
-# Optional: output directory, default is local running directory
-outputDir = "../../idea_fullsim/fast_sim/Histograms_20251112_Debug/EventDisplays_AK6_" + str(PLOT_IDX)
-#outputDir = "../../idea_fullsim/fast_sim/histograms"
 
 def plot_filter(E_reco_over_true, n_unmatched, inv_mass_Higgs, idx=1):
     if idx == 6:

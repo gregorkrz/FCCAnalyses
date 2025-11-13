@@ -8,7 +8,7 @@ def get_jet_vars(df, vec_rp_name, N_durham=-1, ee_pt_cutoff=-1, AK_radius=-1, na
     df = df.Define("rp_m_{}".format(name), "FCCAnalyses::ReconstructedParticle::get_mass({})".format(vec_rp_name))
     df = df.Define("fj_in_{}".format(name), "FCCAnalyses::JetClusteringUtils::set_pseudoJets_xyzm(rp_px_{},rp_py_{},rp_pz_{},rp_m_{})".format(name, name, name, name))
     if ee_pt_cutoff > 0:
-        # we don't really use this
+        # We don't really use this
         df = df.Define(name, "JetClustering::clustering_ee_kt(0, {}, 1, 0)(fj_in_{})".format(ee_pt_cutoff, name))
     elif N_durham > 0:
         print("Using Durham jet clustering algorithm...")

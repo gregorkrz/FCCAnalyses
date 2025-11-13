@@ -42,33 +42,34 @@ nJets_processList = {
 main_dir = "../../idea_fullsim/fast_sim/{hist_folder_name}/{method_name}/energy_fit_params_per_process.pkl"
 hist_folder_name = "Histograms_ECM240_20251105"
 
-fig, ax = plt.subplots(1, 1, figsize=(6, 3))
+for fit_method in ["gaussian_fit", "std68"]:
+    fig, ax = plt.subplots(1, 1, figsize=(6, 3))
 
-for method in methods:
-    method_name = method
-    file_path = main_dir.format(hist_folder_name=hist_folder_name, method_name=method_name)
-    f = pickle.load(open(file_path, "rb"))
-    for process in processes:
-        njets = sorted(processes[process].keys())
-        stochastic_terms = []
-        for njet in njets:
-            process_name = processes[process][njet]
-            stochastic_terms.append(
-                f[process_name]["gaussian_fit"][0][0]
-            )
-        ax.plot(
-            njets,
-            stochastic_terms,
-            label=f"{methods[method]} - {process}",
-            linestyle=line_styles[method],
-            marker="o",
-            color="C{}".format(list(processes.keys()).index(process))
-    )
+    for method in methods:
+        method_name = method
+        file_path = main_dir.format(hist_folder_name=hist_folder_name, method_name=method_name)
+        f = pickle.load(open(file_path, "rb"))
+        for process in processes:
+            njets = sorted(processes[process].keys())
+            stochastic_terms = []
+            for njet in njets:
+                process_name = processes[process][njet]
+                stochastic_terms.append(
+                    f[process_name][fit_method][0][0]
+                )
+            ax.plot(
+                njets,
+                stochastic_terms,
+                label=f"{methods[method]} - {process}",
+                linestyle=line_styles[method],
+                marker="o",
+                color="C{}".format(list(processes.keys()).index(process))
+        )
 
 
-ax.legend()
-ax.set_xlabel("Number of jets in event")
-ax.set_ylabel("Stochastic term (A)")
-fig.tight_layout()
+    ax.legend()
+    ax.set_xlabel("Number of jets in event")
+    ax.set_ylabel("Stochastic term (A)")
+    fig.tight_layout()
+    fig.savefig("../../idea_fullsim/fast_sim/{hist_folder_name}/Njets_vs_stochastic_term_{method}.pdf".format(hist_folder_name=hist_folder_name, method=fit_method))
 
-fig.savefig("../../idea_fullsim/fast_sim/{hist_folder_name}/Njets_vs_stochastic_term.pdf".format(hist_folder_name=hist_folder_name))

@@ -26,14 +26,14 @@ processList = {
     ############## SINGLE HIGGS PROCESSES ##############
     # 6 jets
     "p8_ee_ZH_6jet_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_6jet_HF_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_6jet_LF_ecm240": {'fraction': frac},
+    "p8_ee_ZH_6jet_HF_ecm240": {'fraction': frac},
+    "p8_ee_ZH_6jet_LF_ecm240": {'fraction': frac},
 
     # 4 jets
     "p8_ee_ZH_qqbb_ecm240": {'fraction': frac},
     "p8_ee_ZH_bbbb_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_bbgg_ecm240": {'fraction': frac},
-    #"p8_ee_ZH_qqgg_ecm240": {'fraction': frac},
+    "p8_ee_ZH_bbgg_ecm240": {'fraction': frac},
+    "p8_ee_ZH_qqgg_ecm240": {'fraction': frac},
 
     # 2 jets
     "p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
@@ -172,7 +172,7 @@ def build_graph(df, dataset):
                                   "calo_hit_energy")
     che = df.AsNumpy(["calo_hit_energy"])["calo_hit_energy"]
     print("Calo hit energy array size:", len(che))
-    print("Calo hit energies:", che)
+    #print("Calo hit energies:", che)
     #df = df.Define("n_jets", "Jet.size()")
     # Compute energy of hardest jet over energy of hardest genjet
     df = df.Define("stable_gen_particles", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
@@ -200,7 +200,11 @@ def build_graph(df, dataset):
     df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets, {})".format(first_k))
     if not os.environ.get("JET_ALGO", "durham").lower() == "calojetdurham":
         df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(first_k))
+        # store the neutral and charged components of the jets
+        df = df.Define("RecoJetFastJetNC", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet_split_based_on_charge(FastJet_jets_reco, ReconstructedParticles, {})".format(first_k))
+        df = df.Define("GenJetFastJetNC", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet_split_based_on_charge(FastJet_jets, stable_gen_particles, {})".format(first_k))
     else:
+        # For Durham
         df = df.Define("RecoJetFastJet", "FastJet_jets_reco")
     #print("recojet fastjet:", df.AsNumpy([RecoJetVariable])[RecoJetVariable])
     df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(RecoJetVariable))
@@ -226,6 +230,31 @@ def build_graph(df, dataset):
     hist_genjet_all_energies = df.Histo1D(("h_genjet_all_energies", "E of all gen jets;E_gen;Events", 10, 0, 200), "all_genjet_energies")
     hist_genjet_matched_energies = df.Histo1D(("h_genjet_matched_energies", "E of matched gen jets;E_gen;Events", 10, 0, 200), "matched_genjet_energies")
     df = df.Define("matching_processing", "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, {}, {})".format(RecoJetVariable, GenJetVariable))
+    if not os.environ.get("JET_ALGO", "durham").lower() == "calojetdurham":
+        # Use the RecoJetVariable+NC and GenJetVariable+NC for getting the charged and neutral components of the jets
+        # First element of the pairs: neutral (N), second: charged (C)
+        df = df.Define("matching_processing_Neutral_part", "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, RecoJetFastJetNC.first, GenJetFastJetNC.first)")
+        df = df.Define("ratio_jet_energies_fancy_Neutral_part", "std::get<0>(matching_processing_Neutral_part)")
+        df = df.Define("matching_processing_Charged_part", "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, RecoJetFastJetNC.second, GenJetFastJetNC.second)")
+        df = df.Define("ratio_jet_energies_fancy_Charged_part", "std::get<0>(matching_processing_Charged_part)")
+        df = df.Define("genjet_Neutral_energies_matched", "std::get<2>(matching_processing_Neutral_part)")
+        df = df.Define("genjet_Charged_energies_matched", "std::get<2>(matching_processing_Charged_part)")
+
+        # print some of ratio_jet_energies_fancy_Neutral_part, ratio_jet_energies_fancy_Neutral_part
+        rjefnpc = df.AsNumpy(["ratio_jet_energies_fancy_Neutral_part"])["ratio_jet_energies_fancy_Neutral_part"]
+        rjefcpc = df.AsNumpy(["ratio_jet_energies_fancy_Charged_part"])["ratio_jet_energies_fancy_Charged_part"]
+        print("Neutral:", rjefnpc[:5])
+        print("Charged:", rjefcpc[:5])
+
+        df = df.Define("jet_energy_Neutral_Reco", "FCCAnalyses::ZHfunctions::sort_jet_energies(RecoJetFastJetNC.first)")
+        df = df.Define("jet_energy_Charged_Reco", "FCCAnalyses::ZHfunctions::sort_jet_energies(RecoJetFastJetNC.second)")
+        df = df.Define("genjet_energy_Neutral", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetFastJetNC.first)")
+        df = df.Define("genjet_energy_Charged", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetFastJetNC.second)")
+        print("Neutral reco jet energies:", df.AsNumpy(["jet_energy_Neutral_Reco"])["jet_energy_Neutral_Reco"][:5])
+        print("Charged reco jet energies:", df.AsNumpy(["jet_energy_Charged_Reco"])["jet_energy_Charged_Reco"][:5])
+        print("Neutral gen jet energies:", df.AsNumpy(["genjet_energy_Neutral"])["genjet_energy_Neutral"][:5])
+        print("Charged gen jet energies:", df.AsNumpy(["genjet_energy_Charged"])["genjet_energy_Charged"][:5])
+
     df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
     df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
     df = df.Define("num_unmatched_reco_jets", "E_of_unmatched_reco_jets.size()")
@@ -239,6 +268,38 @@ def build_graph(df, dataset):
         df = df.Define("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "FCCAnalyses::ZHfunctions::filter_number_by_bin(ratio_jet_energies_fancy, genjet_energies_matched, {}, {})".format(bins[i], bins[i + 1]))
         hh = df.Histo1D(("binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]), "Ereco/Etrue;Ereco/Etrue;Events", 1000, 0, 2.0), "binned_E_reco_over_true_{}_{}".format(bins[i], bins[i+1]))
         histograms.append(hh)
+        hh1 = df.Histo1D(
+            ("higher_res_binned_E_reco_over_true_{}_{}".format(bins[i], bins[i + 1]), "Ereco/Etrue;Ereco/Etrue;Events", 5000, 0,
+             2.0), "binned_E_reco_over_true_{}_{}".format(bins[i], bins[i + 1])) # For some smaller experiments
+        histograms.append(hh1)
+        # do this for charged and neutral parts too
+        if not os.environ.get("JET_ALGO", "durham").lower() == "calojetdurham":
+            # Neutral
+            df = df.Define("binned_E_Neutral_reco_over_true_{}_{}".format(bins[i], bins[i + 1]),
+                           "FCCAnalyses::ZHfunctions::filter_number_by_bin(ratio_jet_energies_fancy_Neutral_part, genjet_Neutral_energies_matched, {}, {})".format(
+                               bins[i], bins[i + 1]))
+            hh = df.Histo1D(
+                ("binned_E_Neutral_reco_over_true_{}_{}".format(bins[i], bins[i + 1]), "Ereco/Etrue;Ereco/Etrue;Events", 1000,
+                 0, 2.0), "binned_E_Neutral_reco_over_true_{}_{}".format(bins[i], bins[i + 1]))
+            histograms.append(hh)
+            hh1 = df.Histo1D(
+                ("higher_res_binned_E_Neutral_reco_over_true_{}_{}".format(bins[i], bins[i + 1]), "Ereco/Etrue;Ereco/Etrue;Events",
+                 5000,
+                 0, 2.0), "binned_E_Neutral_reco_over_true_{}_{}".format(bins[i], bins[i + 1]))
+            histograms.append(hh1)
+            # Charged
+            df = df.Define("binned_E_Charged_reco_over_true_{}_{}".format(bins[i], bins[i + 1]),
+                           "FCCAnalyses::ZHfunctions::filter_number_by_bin(ratio_jet_energies_fancy_Charged_part, genjet_Charged_energies_matched, {}, {})".format(
+                               bins[i], bins[i + 1]))
+            hh = df.Histo1D(
+                ("binned_E_Charged_reco_over_true_{}_{}".format(bins[i], bins[i + 1]), "Ereco/Etrue;Ereco/Etrue;Events",
+                 1000,
+                 0, 2.0), "binned_E_Charged_reco_over_true_{}_{}".format(bins[i], bins[i + 1]))
+            histograms.append(hh)
+            hh1 = df.Histo1D(
+                ("higher_res_binned_E_Charged_reco_over_true_{}_{}".format(bins[i], bins[i + 1]),
+                 "Ereco/Etrue;Ereco/Etrue;Events", 5000, 0, 2.0), "binned_E_Charged_reco_over_true_{}_{}".format(bins[i], bins[i + 1]))
+            histograms.append(hh1)
     df = df.Define("jet_etas", "FCCAnalyses::ZHfunctions::get_jet_eta({})".format(RecoJetVariable))
     df = df.Define("genjet_etas", "FCCAnalyses::ZHfunctions::get_jet_eta({})".format(GenJetVariable))
     h_eta = df.Histo1D(("h_eta", "eta of reco jets;eta;Events", 100, -5, 5), "jet_etas")

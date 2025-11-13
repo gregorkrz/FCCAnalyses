@@ -157,7 +157,7 @@ def build_graph(df, dataset):
                                   "calo_hit_energy")
     che = df.AsNumpy(["calo_hit_energy"])["calo_hit_energy"]
     print("Calo hit energy array size:", len(che))
-    print("Calo hit energies:", che)
+    #print("Calo hit energies:", che)
     #df = df.Define("n_jets", "Jet.size()")
     # Compute energy of hardest jet over energy of hardest genjet
     df = df.Define("stable_gen_particles", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")

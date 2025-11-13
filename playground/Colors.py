@@ -14,8 +14,6 @@ HUMAN_READABLE_PROCESS_NAMES = {
     "p8_ee_ZH_vvgg_ecm240": "Z(→νν)H(→gg)",
     "p8_ee_ZH_vvqq_ecm240": "Z(→νν)H(→ll)",
 
-
-
     ## For the ee-AK comparison
     "Calo Durham": "Calo Durham",
     "PF Durham": "PF Durham",
@@ -77,3 +75,4 @@ PROCESS_COLORS = {
     "AK10": "#6e3ebf",
     "AK12": "#542ba2",
 }
+

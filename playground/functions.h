@@ -595,6 +595,50 @@ Vec_rp fastjet_to_vec_rp_jet(JetClustering::FCCAnalysesJet jets, int first_k) {
     return out;
 }
 
+pair<Vec_rp, Vec_rp> fastjet_to_vec_rp_jet_split_based_on_charge(JetClustering::FCCAnalysesJet jets, Vec_rp in_particles, int first_k) {
+    // A slightly more complicated version of fastjet_to_vec_rp_jet, that outputs neutral and charged part of the jet
+    Vec_rp rp_neutral_out;
+    Vec_rp rp_charged_out;
+    vector<size_t> indices(jets.jets.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::sort(indices.begin(), indices.end(),
+              [&jets](size_t a, size_t b) {
+                  float pt_a = std::sqrt(jets.jets[a].px()*jets.jets[a].px() + jets.jets[a].py()*jets.jets[a].py());
+                  float pt_b = std::sqrt(jets.jets[b].px()*jets.jets[b].px() + jets.jets[b].py()*jets.jets[b].py());
+                  return pt_a > pt_b;
+              });
+    size_t n_jets_to_keep = std::min(static_cast<size_t>(first_k), jets.jets.size());
+    for (size_t i = 0; i < n_jets_to_keep; ++i) {
+        size_t idx = indices[i];
+        auto & j = jets.jets[idx];
+        edm4hep::ReconstructedParticleData rp_neutral;
+        edm4hep::ReconstructedParticleData rp_charged;
+        //edm4hep::ReconstructedParticleData rp_all;
+        vector<int> constituents = jets.constituents[idx];
+        // Now go over constituents and sum up charged and neutral parts
+        for (auto & c_idx : constituents) {
+            if(c_idx >= 0 && c_idx < in_particles.size()) {
+                auto & p = in_particles[c_idx];
+                if(p.charge == 0) {
+                    rp_neutral.momentum.x += p.momentum.x;
+                    rp_neutral.momentum.y += p.momentum.y;
+                    rp_neutral.momentum.z += p.momentum.z;
+                    rp_neutral.energy     += p.energy;
+                } else {
+                    rp_charged.momentum.x += p.momentum.x;
+                    rp_charged.momentum.y += p.momentum.y;
+                    rp_charged.momentum.z += p.momentum.z;
+                    rp_charged.energy     += p.energy;
+                    rp_charged.charge     += p.charge;
+                }
+            }
+        }
+        rp_neutral_out.push_back(rp_neutral);
+        rp_charged_out.push_back(rp_charged);
+    }
+    return make_pair(rp_neutral_out, rp_charged_out);
+}
+
 std::vector<float> sort_jet_energies(Vec_rp jets) { // return a vector<float> of the jet energies highest to lowest
     std::vector<float> energies;
     for(auto & j : jets) {
@@ -675,6 +719,10 @@ Vec_rp stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
             temp.mass = p.mass;
             temp.charge = p.charge;
             temp.PDG = p.PDG;
+            temp.energy = std::sqrt(p.momentum.x * p.momentum.x +
+                                     p.momentum.y * p.momentum.y +
+                                     p.momentum.z * p.momentum.z +
+                                     p.mass * p.mass);
             if (neutrino_filter) {
                 if (abs(temp.PDG) == 12 || abs(temp.PDG) == 14 || abs(temp.PDG) == 16) {
                     continue; // Skip neutrinos
