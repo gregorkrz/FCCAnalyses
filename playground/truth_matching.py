@@ -1,5 +1,5 @@
 
-def get_Higgs_mass_with_truth_matching(df, genjets_field="GenJetDurhamN4", recojets_field="JetDurhamN4", define_mc_quark_idx=True, expected_num_jets=-1):
+def get_Higgs_mass_with_truth_matching(df, genjets_field="GenJetDurhamN4", recojets_field="JetDurhamN4", define_mc_quark_idx=True, expected_num_jets=-1, matching_radius=0.3):
     if define_mc_quark_idx:
         df = df.Define("MC_quark_idx", "FCCAnalyses::ZHfunctions::get_MC_quark_index(Particle)")
     df = df.Define("gt_labels", "FCCAnalyses::ZHfunctions::getGTLabels(MC_part_idx, Particle, _Particle_daughters.index);")
@@ -21,7 +21,7 @@ def get_Higgs_mass_with_truth_matching(df, genjets_field="GenJetDurhamN4", recoj
     print("MC part e", df.AsNumpy(["_ser_MCpart_e"])["_ser_MCpart_e"][:5])
     df = df.Define("inv_mass_MC_part", "FCCAnalyses::ZHfunctions::invariant_mass(MC_part_asjets)")
     #print("MC_part_asjets", df.AsNumpy(["MC_part_asjets"])["MC_part_asjets"])
-    df = df.Define("HardP_to_GenJet_mapping", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(MC_part_asjets, {}, 0.3, false)".format(genjets_field))
+    df = df.Define("HardP_to_GenJet_mapping", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(MC_part_asjets, {}, {}, false)".format(genjets_field, matching_radius))
     # For gen to reco jets, it should already be defined in fancy_matching
     #print("HardP_to_GenJet_mapping", df.AsNumpy(["HardP_to_GenJet_mapping"])["HardP_to_GenJet_mapping"])
     df = df.Define("HardP_to_RecoJet_mapping", "FCCAnalyses::ZHfunctions::merge_mappings(HardP_to_GenJet_mapping, fancy_matching)")

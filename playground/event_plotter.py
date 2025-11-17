@@ -14,7 +14,6 @@ from jet_helper import get_jet_vars
 #inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/20251028_only1root"
 
 '''
-
 PLOT IDX options:
 
 1: the slice of the E_reco/E_true around 0.9
@@ -23,13 +22,12 @@ PLOT IDX options:
 4: events with invariant mass 123-127 GeV (Higgs mass window)
 5: events with invariant mass < 10 GeV
 6: all events
-
 '''
 
 PLOT_IDX = 6
 
 inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/Tiny_IDEA_20251105/"
-outputDir = "../../idea_fullsim/fast_sim/Histograms_20251112_Debug/EventDisplays_AK6_" + str(PLOT_IDX)
+outputDir = "../../idea_fullsim/fast_sim/Histograms_20251112_Debug/EventDisplays_Durham_" + str(PLOT_IDX)
 
 gf = "GenJetDurhamN4"
 rf = "JetDurhamN4"
@@ -101,9 +99,6 @@ includePaths = ["functions.h", "utils.h"]
 #inputDir = "../../idea_fullsim/fast_sim/outputs"
 
 
-
-
-
 def plot_filter(E_reco_over_true, n_unmatched, inv_mass_Higgs, idx=1):
     if idx == 6:
         return True
@@ -129,6 +124,7 @@ def plot_filter(E_reco_over_true, n_unmatched, inv_mass_Higgs, idx=1):
             if (E > 0.87) and (E < 0.93):
                 return True
     return False
+
 
 def build_graph(df, dataset):
     global global_event_idx # Is this thread-safe??
@@ -171,11 +167,13 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_calo_jets", "FCCAnalyses::Utils::serialize_event(CaloJetDurham);")
     df = df.Define("stable_gen_part_neutrinoFilter", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
     # Durham jets
-    #df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", N_durham=nJets_processList[dataset], name="FastJet_jets")
-    #df = get_jet_vars(df, "ReconstructedParticles", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
+
+    df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", N_durham=nJets_processList[dataset], name="FastJet_jets")
+    df = get_jet_vars(df, "ReconstructedParticles", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
+
     # AK6 jets
-    df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", name="FastJet_jets", is_ee_AK=True, AK_radius=0.6)
-    df = get_jet_vars(df, "ReconstructedParticles", name="FastJet_jets_reco", is_ee_AK=True, AK_radius=0.6)
+    #df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", name="FastJet_jets", is_ee_AK=True, AK_radius=0.6)
+    #df = get_jet_vars(df, "ReconstructedParticles", name="FastJet_jets_reco", is_ee_AK=True, AK_radius=0.6)
     df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets, {})".format(nJets_processList[dataset]))
     df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(nJets_processList[dataset]))
     df = df.Define("_serialized_evt_gen", "FCCAnalyses::Utils::serialize_event(stable_gen_part_neutrinoFilter);")
@@ -185,10 +183,10 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_evt_eta", "std::get<0>(_serialized_evt);")
     df = df.Define("_serialized_evt_phi", "std::get<1>(_serialized_evt);")
     df = df.Define("_serialized_evt_pt", "std::get<2>(_serialized_evt);")
+    df = df.Define("_serialized_evt_PDG", "std::get<3>(_serialized_evt);")
     df = df.Define("_serialized_calojets_eta", "std::get<0>(_serialized_calo_jets);")
     df = df.Define("_serialized_calojets_phi", "std::get<1>(_serialized_calo_jets);")
     df = df.Define("_serialized_calojets_pt", "std::get<2>(_serialized_calo_jets);")
-
     df = df.Define("_serialized_evt_gen_eta", "std::get<0>(_serialized_evt_gen);")
     df = df.Define("_serialized_evt_gen_phi", "std::get<1>(_serialized_evt_gen);")
     df = df.Define("_serialized_evt_gen_pt", "std::get<2>(_serialized_evt_gen);")
@@ -224,7 +222,8 @@ def build_graph(df, dataset):
                           "_serialized_evt_gen_phi", "_serialized_evt_gen_pt", "MCparts_eta", "MCparts_phi", "MCparts_pt",
                           "_serialized_evt_gen_PDG", "_calohits_eta", "_calohits_phi", "_calohits_pt", "_serialized_jets_m",
                           "MC_quark_index", "_serialized_calojets_eta", "_serialized_calojets_phi",
-                          "_serialized_calojets_pt", "fancy_matching", "HardP_to_GenJet_mapping", "HardP_to_RecoJet_mapping"])
+                          "_serialized_calojets_pt", "fancy_matching", "HardP_to_GenJet_mapping", "HardP_to_RecoJet_mapping",
+                          "_serialized_evt_PDG"])
     tonumpy = {key: list([list(x) for x in tonumpy[key]]) for key in tonumpy}
     #inv_mass_gen_all = list(df.AsNumpy(["inv_mass_gen_all"])["inv_mass_gen_all"])
     inv_mass_all_gen_p = list(df.AsNumpy(["inv_mass_all_gen_particles"])["inv_mass_all_gen_particles"])
@@ -268,9 +267,9 @@ def build_graph(df, dataset):
             #event_idx = # I want an event idx that is unique per dataset, even with multiple input root files. How do I do this?
             #print("Plotting event idx ", global_event_idx.get(dataset, 0), " from dataset ", dataset)
             eta, phi, pt = tonumpy["_serialized_evt_eta"][event_idx], tonumpy["_serialized_evt_phi"][event_idx], tonumpy["_serialized_evt_pt"][event_idx]
-            vec_rp = Vec_RP(eta=eta, phi=phi, pt=pt)
+            vec_rp = Vec_RP(eta=eta, phi=phi, pt=pt, pdg=tonumpy["_serialized_evt_PDG"][event_idx])
             etamc, phimc, ptmc = tonumpy["_serialized_evt_gen_eta"][event_idx], tonumpy["_serialized_evt_gen_phi"][event_idx], tonumpy["_serialized_evt_gen_pt"][event_idx]
-            vec_mc = Vec_RP(eta=etamc, phi=phimc, pt=ptmc)#, txt=[str(pdg) for pdg in tonumpy["_serialized_evt_gen_PDG"][event_idx]])
+            vec_mc = Vec_RP(eta=etamc, phi=phimc, pt=ptmc, pdg=tonumpy["_serialized_evt_gen_PDG"][event_idx])#, txt=[str(pdg) for pdg in tonumpy["_serialized_evt_gen_PDG"][event_idx]])
             jets_eta, jets_phi, jets_pt = tonumpy["_serialized_jets_eta"][event_idx], tonumpy["_serialized_jets_phi"][event_idx], tonumpy["_serialized_jets_pt"][event_idx]
             jets_m = tonumpy["_serialized_jets_m"][event_idx]
             #jets_text = l[event_idx]
@@ -305,6 +304,7 @@ def build_graph(df, dataset):
             # Close the figure
             fig.clf()
             del fig
+            plotly_fig = event.plot_eta_phi()
+            plotly_fig.write_html(os.path.join(outputDir, "event_{}_{}.html".format(dataset, global_event_idx.get(dataset, 0))))
             global_event_idx[dataset] = global_event_idx.get(dataset, 0) + 1
     return [], weightsum
-

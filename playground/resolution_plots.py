@@ -62,7 +62,7 @@ for file in os.listdir(args.folder):
         processList[proc_name] = {'fraction': 1}
 
 ########################################################################################################
-binsE = [0, 40, 50, 60, 70, 80, 90, 100]
+binsE = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
 bins_costheta = [-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1]
 
@@ -95,11 +95,17 @@ def double_crystal_ball(x, mu, sigma, alphaL, nL, alphaR, nR, norm):
     return result
 
 
-def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"):
+def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68", root_histogram_prefix="binned_E_reco_over_true_"):
     # Sigma methods: std68, RMS, interquantile_range
     f = ROOT.TFile.Open(os.path.join(args.folder, "{}.root".format(procname)))
-    fig_hist, ax_hist = plt.subplots(2, 1, figsize=(8, 6))# stack two plots vertically
-    def get_std68(theHist, bin_edges, percentage=0.683, epsilon=0.001):
+    fig_hist, ax_hist = plt.subplots(3, 1, figsize=(8, 8.5))# stack two plots vertically
+    eps = 0.001
+    if "higher_res" in root_histogram_prefix:
+        print("Doing higher resolution histograms")
+        eps = 0.0002
+    else:
+        raise Exception # TEMPORARILY
+    def get_std68(theHist, bin_edges, percentage=0.683, epsilon=eps):
         # theHist, bin_edges = np.histogram(data_for_hist, bins=bins, density=True)
         s =  np.sum(theHist * np.diff(bin_edges))
         if s != 0:
@@ -168,7 +174,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
     def is_twojet_proc(procname):
         return "vvbb" in procname or "vvqq" in procname or "vvgg" in procname
     for i in range(len(bins) - 1):
-        hist_name = f"binned_E_reco_over_true_{suffix}{neg_format(bins[i])}_{neg_format(bins[i+1])}"
+        hist_name = f"{root_histogram_prefix}{suffix}{neg_format(bins[i])}_{neg_format(bins[i+1])}"
         rf = 1
         #if bins[i] == 0 and bins[i+1] == 25 and is_twojet_proc(procname):
         #    rf = 2  # to reduce statistical fluctuations when stats are low
@@ -188,10 +194,11 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             y_normalized = y
         ax_hist[0].step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV (N={int(n_jets_in_bin)})")
         ax_hist[1].step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV (N={int(n_jets_in_bin)})")
+        ax_hist[2].step(edges[:-1], y_normalized, where="post", label=f"[{bins[i]}, {bins[i + 1]}] GeV (N={int(n_jets_in_bin)})")
         bins_to_histograms[i] = [y_normalized, edges]
         yc = copy(y)
         if sigma_method == "std68":
-            std68, low, high, MPV = get_std68(y, edges, percentage=0.683, epsilon=0.001)
+            std68, low, high, MPV = get_std68(y, edges, percentage=0.683, epsilon=eps)
         elif sigma_method == "RMS":
             MPV = 0.5 * (edges[np.argmax(y)] + edges[np.argmax(y) + 1])
             mean = np.sum([(0.5 * (edges[i] + edges[i + 1])) * yc[i] * (edges[i + 1] - edges[i]) for i in range(len(yc))]) / np.sum([yc[i] * (edges[i + 1] - edges[i]) for i in range(len(yc))])
@@ -272,7 +279,12 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
     ax_hist[1].set_xlabel(r'$E_{reco} / E_{true}$')
     ax_hist[1].set_ylabel('Entries')
     ax_hist[1].set_xlim([0.85, 1.15])
+    ax_hist[2].set_xlim([0.85, 1.15])
+    ax_hist[2].set_yscale("log")
+    ax_hist[2].set_xlabel(r'$E_{reco} / E_{true}$')
+    ax_hist[2].set_ylabel('Entries')
     return bin_mid_points, sigmaEoverE, fig_hist, responses, bins_to_histograms, lo_hi_MPV
+
 
 bin_to_histograms_storage = {}
 method_low_high_mid_point_storage = {}
@@ -289,70 +301,86 @@ def get_func_fit(mid_points, Rs):
 
 process_popt_storage = {} # store the covariance matrix and optimal parameters for each process
 
-fig_resolution_per_process, ax_resolution_per_process = plt.subplots(len(processList), 2, figsize=(8, 4 * len(processList)), sharex=True)
-# left column: resolution, right column: response. Comparison of gaussian_fit and std68
 method_to_color = {
     "std68": "blue",
     "gaussian_fit": "purple"
 }
 
-for method in ["gaussian_fit", "std68"]:
-    print("-----------------------------------------------------------")
-    print("Using peak width method:", method)
-    # fig, ax = plt.subplots(2, 1, figsize=(8, 6))
-    # the same as above but make it (10, 6) and make the upper plot 2/3 and lower plot 1/3 of the height
-    fig, ax = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
-    for proc_idx, process in enumerate(sorted(list(processList.keys()))):
-        bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms, mpv_lo_hi = get_result_for_process(process, sigma_method=method)
-        if process not in method_low_high_mid_point_storage:
-            method_low_high_mid_point_storage[process] = {}
-        method_low_high_mid_point_storage[process][method] = mpv_lo_hi
-        if method == "std68":
-            bin_to_histograms_storage[process] = bin_to_histograms
-            fig_histograms.tight_layout()
-            fig_histograms.savefig(
-                "../../idea_fullsim/fast_sim/{}/{}/bins_{}_{}.pdf".format(histograms_folder, os.environ["FOLDER_NAME"], process, method)
-            )
-        clr = PROCESS_COLORS.get(process, f"C{proc_idx}")
-        xs, ys, popt, pcov = get_func_fit(bin_mid_points, sigmaEoverE)
-        print(f"Fitted parameters for {process} using {method}: a={popt[0]:.4f}, b={popt[1]:.4f}")
-        if process not in process_popt_storage:
-            process_popt_storage[process] = {}
-        process_popt_storage[process][method] = (popt, pcov, xs, ys)
-        ax[0].plot(bin_mid_points, sigmaEoverE, "x", color=clr)
-        ax[0].plot(xs, ys, LINE_STYLES[process], color=clr, label=HUMAN_READABLE_PROCESS_NAMES[process] + f" A={round(popt[0], 2)} B={round(popt[1], 2)}")
-        ax[1].plot(bin_mid_points, resp, ".--", label=process, color=clr)
-        if method in method_to_color:
-            ax_resolution_per_process[proc_idx, 0].plot(bin_mid_points, sigmaEoverE, "x", label=method + f" A={round(popt[0], 2)} B={round(popt[1], 2)}", color=method_to_color[method])
-            ax_resolution_per_process[proc_idx, 0].plot(xs, ys, LINE_STYLES[process], color=method_to_color[method])
-            ax_resolution_per_process[proc_idx, 0].set_title(HUMAN_READABLE_PROCESS_NAMES[process])
-            ax_resolution_per_process[proc_idx, 1].plot(bin_mid_points, resp, ".--", label=method, color=method_to_color[method])
-        ax_resolution_per_process[proc_idx, 0].set_xlabel('$E_{true}$ [GeV]')
-        ax_resolution_per_process[proc_idx, 0].set_ylabel(r'$\sigma_E / E$')
-        ax_resolution_per_process[proc_idx, 1].set_xlabel('$E_{true}$ [GeV]')
-        ax_resolution_per_process[proc_idx, 1].set_ylabel("Response")
-        # Also turn legend and grid on
-        ax_resolution_per_process[proc_idx, 0].legend()
-        ax_resolution_per_process[proc_idx, 0].grid(True)
-        ax_resolution_per_process[proc_idx, 1].grid(True)
-    ax[0].legend()
-    ax[0].set_xlabel('$E_{true}$ [GeV]')
-    ax[0].set_ylabel(r'$\sigma_E / E$')
-    ax[0].set_title(r'Jet Energy Resolution ($\frac{A}{\sqrt{E}}$ ⊕ $B$ )')
-    ax[0].grid(True, alpha=0.3)
-    ax[1].set_ylabel("Response")
-    ax[1].set_xlabel('$E_{true}$ [GeV]')
-    ax[1].grid()
-    fig.tight_layout()
-    fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_{}.pdf".format(histograms_folder, args.output, method))
-fig_resolution_per_process.tight_layout()
-fig_resolution_per_process.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_per_process_comparison.pdf".format(histograms_folder, args.output))
+jet_part_to_histogram_prefix = {
+    "": "binned_E_reco_over_true_",
+    "_charged": "binned_E_Charged_reco_over_true_",
+    "_neutral": "binned_E_Neutral_reco_over_true_",
+    "_higherRes": "higher_res_binned_E_reco_over_true_",
+}
+
+for jet_part in [ "_higherRes"]:
+    fig_resolution_per_process, ax_resolution_per_process = plt.subplots(len(processList), 2,
+                                                                         figsize=(8, 4 * len(processList)),
+                                                                         sharex=False)
+    # Left column: resolution, right column: response. Comparison of gaussian_fit and std68
+    for method in ["gaussian_fit", "std68"]:
+        print("-----------------------------------------------------------")
+        print("Using peak width method:", method)
+        # fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+        # the same as above but make it (10, 6) and make the upper plot 2/3 and lower plot 1/3 of the height
+        fig, ax = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
+        for proc_idx, process in enumerate(sorted(list(processList.keys()))):
+            bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms, mpv_lo_hi = get_result_for_process(process, sigma_method=method, root_histogram_prefix=jet_part_to_histogram_prefix[jet_part])
+            if process not in method_low_high_mid_point_storage:
+                method_low_high_mid_point_storage[process] = {}
+            if jet_part == "_higherRes":
+                method_low_high_mid_point_storage[process][method] = mpv_lo_hi
+            if method == "std68" and jet_part == "_higherRes":
+                bin_to_histograms_storage[process] = bin_to_histograms
+                fig_histograms.tight_layout()
+                fig_histograms.savefig(
+                    "../../idea_fullsim/fast_sim/{}/{}/bins_{}_{}.pdf".format(histograms_folder, os.environ["FOLDER_NAME"], process, method)
+                )
+            clr = PROCESS_COLORS.get(process, f"C{proc_idx}")
+            if len(bin_mid_points) < 2:
+                print(f"Not enough points to fit for process {process} using method {method}. Skipping.")
+                continue
+            xs, ys, popt, pcov = get_func_fit(bin_mid_points, sigmaEoverE)
+            print(f"Fitted parameters for {process} using {method}: a={popt[0]:.4f}, b={popt[1]:.4f}")
+            if process not in process_popt_storage:
+                process_popt_storage[process] = {}
+            process_popt_storage[process][method] = (popt, pcov, xs, ys)
+            ax[0].plot(bin_mid_points, sigmaEoverE, "x", color=clr)
+            ax[0].plot(xs, ys, LINE_STYLES[process], color=clr, label=HUMAN_READABLE_PROCESS_NAMES[process] + f" A={round(popt[0], 2)} B={round(popt[1], 2)}")
+            ax[1].plot(bin_mid_points, resp, ".--", label=process, color=clr)
+            if method in method_to_color:
+                ax_resolution_per_process[proc_idx, 0].plot(bin_mid_points, sigmaEoverE, "x", label=method + f" A={round(popt[0], 2)} B={round(popt[1], 2)}", color=method_to_color[method])
+                ax_resolution_per_process[proc_idx, 0].plot(xs, ys, LINE_STYLES[process], color=method_to_color[method])
+                ax_resolution_per_process[proc_idx, 0].set_title(HUMAN_READABLE_PROCESS_NAMES[process])
+                ax_resolution_per_process[proc_idx, 1].plot(bin_mid_points, resp, ".--", label=method, color=method_to_color[method])
+            ax_resolution_per_process[proc_idx, 0].set_xlabel('$E_{true}$ [GeV]')
+            ax_resolution_per_process[proc_idx, 0].set_ylabel(r'$\sigma_E / E$')
+            ax_resolution_per_process[proc_idx, 1].set_xlabel('$E_{true}$ [GeV]')
+            ax_resolution_per_process[proc_idx, 1].set_ylabel("Response")
+            # Also turn legend and grid on
+            ax_resolution_per_process[proc_idx, 0].legend()
+            ax_resolution_per_process[proc_idx, 0].grid(True)
+            ax_resolution_per_process[proc_idx, 1].grid(True)
+        ax[0].legend()
+        ax[0].set_xlabel('$E_{true}$ [GeV]')
+        ax[0].set_ylabel(r'$\sigma_E / E$')
+        ax[0].set_title(r'Jet Energy Resolution ($\frac{A}{\sqrt{E}}$ ⊕ $B$ )')
+        ax[0].grid(True, alpha=0.3)
+        ax[1].set_ylabel("Response")
+        ax[1].set_xlabel('$E_{true}$ [GeV]')
+        ax[1].grid()
+        fig.tight_layout()
+        fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_{}.pdf".format(histograms_folder, args.output, method))
+    fig_resolution_per_process.tight_layout()
+    fig_resolution_per_process.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_per_process_comparison{}.pdf".format(histograms_folder, args.output, jet_part))
+
 
 pickle.dump(process_popt_storage, open("../../idea_fullsim/fast_sim/{}/{}/energy_fit_params_per_process.pkl".format(histograms_folder, args.output), "wb"))
 method_to_color = {"std68": "blue", "RMS": "orange", "interquantile_range": "green", "DSCB": "red", "gaussian_fit": "purple"}
-### Plot each bin on a separate plot, but different processes on same plot
-fig, ax = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
-fig_bins, ax_bins = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=True)
+
+### Plot each bin on a separate plot, but different processes on same plot ###
+fig, ax = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=False)
+fig_bins, ax_bins = plt.subplots(len(binsE) - 1, 1, figsize=(6, 4 * (len(binsE) - 1)), sharex=False)
 
 for i in range(len(binsE) - 1):
     for process in sorted(list(processList.keys())):
@@ -386,8 +414,7 @@ fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison.pdf".f
 fig_bins.tight_layout()
 fig_bins.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_bins_comparison_full_axis.pdf".format(histograms_folder, args.output))
 
-
-for method in ["std68", "RMS", "interquantile_range", "DSCB", "gaussian_fit"]:
+for method in ["std68", "gaussian_fit"]:
     #fig, ax = plt.subplots(2, 1, figsize=(8, 6))
     fig, ax = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
     for process in sorted(list(processList.keys())):
@@ -415,7 +442,7 @@ for method in ["std68", "RMS", "interquantile_range", "DSCB", "gaussian_fit"]:
     fig.tight_layout()
     fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_Eta_resolution_data_points_{}.pdf".format(histograms_folder, args.output, method))
 
-for method in ["std68", "RMS", "interquantile_range", "DSCB", "gaussian_fit"]:
+for method in ["std68", "gaussian_fit"]:
     #fig, ax = plt.subplots(2, 1, figsize=(8, 6))
     fig , ax  = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
     for process in sorted(list(processList.keys())):

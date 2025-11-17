@@ -14,6 +14,8 @@ assert "INPUT_DIR" in os.environ # To make sure we are taking the right input di
 assert "FOLDER_NAME" in os.environ
 assert "HISTOGRAMS_FOLDER_NAME" in os.environ # Default: Histograms_ECM240
 
+matching_radius = os.environ.get("JET_MATCHING_RADIUS", 0.3)
+
 inputDir = os.environ.get("INPUT_DIR")
 print("Using input dir:", inputDir)
 print("Using folder name:", os.environ.get("FOLDER_NAME"))
@@ -39,7 +41,6 @@ processList = {
     "p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
     "p8_ee_ZH_vvqq_ecm240": {'fraction': frac},
     "p8_ee_ZH_vvbb_ecm240": {'fraction': frac},
-
 
     ##############2 jets: other detectors study #################
     #"p8_ee_ZH_vvgg_ecm240_CEPC":  {'fraction': frac},
@@ -105,7 +106,7 @@ nJets_from_H_process_list = {
 #for proc in processList:
 #    processList[proc]['files'] = get_files(proc)
 #bins = [0, 25, 50, 75, 100, 125, 150, 175, 200]
-bins = [0, 40, 50, 60, 70, 80, 90, 100]
+bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 bins_eta = [-5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 5]
 bins_costheta = [-1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1]
 
@@ -210,7 +211,7 @@ def build_graph(df, dataset):
     df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(RecoJetVariable))
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(GenJetVariable))
     #df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
-    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, 0.3, false)".format(RecoJetVariable, GenJetVariable))
+    df = df.Define("fancy_matching", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, {}, false)".format(RecoJetVariable, GenJetVariable, matching_radius))
     df = df.Define("njets", "{}.size()".format(RecoJetVariable))
     df = df.Define("ngenjets", "{}.size()".format(GenJetVariable))
     df = df.Define("distance_between_genjets", "FCCAnalyses::ZHfunctions::get_jet_distances({})".format(GenJetVariable))
@@ -323,10 +324,12 @@ def build_graph(df, dataset):
     h_fancy1 = df.Histo1D(("h_fancy_E0", "E_reco/E_true (fancy matching);E_reco / E_true;Events", 150, 0.4, 1.2), "ratio_jet_energies_fancy_E0")
     h_unmatched_reco_jets = df.Histo1D(("h_unmatched_reco_jets", "E of unmatched reco jets;E_reco;Events", 100, 0, 300), "E_of_unmatched_reco_jets")
     results = [h_fancy, h_fancy1, h_unmatched_reco_jets, hist_njets, hist_ngenjets, h_fancy_higheta] #+ h_mass
-    df = get_Higgs_mass_with_truth_matching(df, genjets_field=GenJetVariable, recojets_field=RecoJetVariable, define_mc_quark_idx=False, expected_num_jets=nJets_from_H_process_list[dataset])
+    df = get_Higgs_mass_with_truth_matching(df, genjets_field=GenJetVariable, recojets_field=RecoJetVariable,
+                                            define_mc_quark_idx=False, expected_num_jets=nJets_from_H_process_list[dataset],
+                                            matching_radius=matching_radius)
     #print("MC part idx", df.AsNumpy(["MC_part_idx"])["MC_part_idx"][:5])
     ##################################################################################################################
-    df = df.Define("matching_reco_with_partons", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, 0.3, false)".format(RecoJetVariable, "MC_part_asjets"))
+    df = df.Define("matching_reco_with_partons", "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({}, {}, {}, false)".format(RecoJetVariable, "MC_part_asjets", matching_radius))
     print("Matching reco with partons:", df.AsNumpy(["matching_reco_with_partons"])["matching_reco_with_partons"][:5])
     df = df.Define("matching_proc_with_partons",
                    "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(matching_reco_with_partons, {}, {})".format(RecoJetVariable, "MC_part_asjets"))

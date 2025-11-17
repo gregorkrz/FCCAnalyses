@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 from typing import Optional
 import numpy as np
+import plotly.graph_objects as go
 
 @dataclass
 class Vec_RP:
@@ -9,6 +10,7 @@ class Vec_RP:
     phi: list[float]
     pt: list[float]
     txt: Optional[list] = None
+    pdg: list[int] = None
 
 class Event:
     def __init__(self, vec_rp: Vec_RP, vec_mc: Vec_RP = None, additional_collections={}, special_symbols={}, additional_text_dict={}):
@@ -88,3 +90,132 @@ class Event:
         fig.tight_layout()
         return fig, ax
 
+    def plot_eta_phi(self, title: str = "Event display: η–φ", show: bool = True):
+        """
+        Create an interactive η–φ plot for:
+          - reconstructed particles (self.vec_rp)
+          - generator-level particles (self.vec_mc, if present)
+          - any additional collections (jets, etc.) in self.additional_collections
+
+        Each collection is drawn with a different color. Additional marker symbols
+        can be set via self.special_symbols[label].
+        Hovering over a point shows η, φ, pT, PDG ID (if available) and any text.
+        """
+        fig = go.Figure()
+
+        # Default color cycle (will be used if self.colors is too short / empty)
+        default_colors = [
+            "#1f77b4",  # blue
+            "#d62728",  # red
+            "#2ca02c",  # green
+            "#ff7f0e",  # orange
+            "#9467bd",  # purple
+            "#8c564b",  # brown
+            "#17becf",  # teal
+            "#e377c2",  # pink
+            "#7f7f7f",  # gray
+            "#bcbd22",  # olive
+        ]
+
+        # Build list of collections to plot
+        collections = []
+
+        if self.vec_rp is not None:
+            collections.append(("Reco", self.vec_rp))
+
+        if self.vec_mc is not None:
+            collections.append(("Gen", self.vec_mc))
+
+        for label, vec in self.additional_collections.items():
+            collections.append((label, vec))
+
+        # Determine colors: reco, gen, then each additional collection
+        n_cols = len(collections)
+        if self.colors and len(self.colors) >= n_cols:
+            color_list = self.colors[:n_cols]
+        else:
+            # Extend defaults if needed
+            reps = (n_cols // len(default_colors)) + 1
+            color_list = (default_colors * reps)[:n_cols]
+
+        # Helper to build hover text for a given collection
+        def build_hover_text(label, vec: Vec_RP, extra_text: Optional[list] = None):
+            hover = []
+            has_pdg = vec.pdg is not None and len(vec.pdg) == len(vec.eta)
+            has_txt = vec.txt is not None and len(vec.txt) == len(vec.eta)
+            has_extra = extra_text is not None and len(extra_text) == len(vec.eta)
+
+            for i, (eta, phi, pt) in enumerate(zip(vec.eta, vec.phi, vec.pt)):
+                parts = [f"Collection: {label}",
+                         f"η = {eta:.3f}",
+                         f"φ = {phi:.3f}",
+                         f"pT = {pt:.3f}"]
+                if has_pdg:
+                    parts.append(f"PDG ID = {vec.pdg[i]}")
+                if has_txt:
+                    parts.append(f"txt = {vec.txt[i]}")
+                if has_extra:
+                    parts.append(str(extra_text[i]))
+                hover.append("<br>".join(parts))
+            return hover
+
+        # Determine a global pT scaling so marker sizes are proportional
+        all_pts = []
+        for _, vec in collections:
+            #if vec.pt:
+            all_pts.extend(vec.pt)
+
+        max_pt = max(all_pts) if len(all_pts) > 0 else 1.0
+
+        max_marker_size = 30  # biggest visible point
+        min_marker_size = 6  # smallest visible point
+
+        def pt_to_size(pt):
+            return min_marker_size + (pt / max_pt) * (max_marker_size - min_marker_size)
+
+        # Add one scatter trace per collection
+        for (idx, (label, vec)) in enumerate(collections):
+            if not vec or not vec.eta or not vec.phi:
+                continue
+
+            extra_text = None
+            if label in self.additional_text_dict:
+                extra_text = self.additional_text_dict[label]
+
+            hover = build_hover_text(label, vec, extra_text=extra_text)
+            marker_symbol = self.special_symbols.get(label, "circle")
+
+            fig.add_trace(
+                go.Scatter(
+                    x=vec.eta,
+                    y=vec.phi,
+                    mode="markers",
+                    name=label,
+                    text=hover,
+                    hoverinfo="text",
+                    marker=dict(
+                        size=[pt_to_size(pt) for pt in vec.pt],  # ← NEW
+                        color=color_list[idx],
+                        symbol=marker_symbol,
+                        line=dict(width=0.5)
+                    ),
+                )
+            )
+        # set x lim and y lim from -3.14 to +3.14
+        fig.update_xaxes(range=[-3.5, 3.5])
+        fig.update_yaxes(range=[-3.5, 3.5])
+
+
+        fig.update_layout(
+            title=title,
+            xaxis_title="η",
+            yaxis_title="φ",
+            legend_title="Collections",
+            template="plotly_white",
+        )
+
+        # Optionally show inline
+        if show:
+            fig.show()
+
+        return fig

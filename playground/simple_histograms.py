@@ -63,7 +63,7 @@ plt.tight_layout()
 plt.savefig("../../idea_fullsim/fast_sim/{}/{}/norm_E_over_true_overlaid.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 
 # Make the same plot but with a thin line, only for nu nu q q and with xlim from -0.6 to +0.6
-fig, ax = plt.subplots(2, 1, figsize=(6, 8.5))
+fig, ax = plt.subplots(3, 1, figsize=(6, 10.5))
 for fname in root_files:
     file_path = os.path.join(inputDir, fname)
     f = ROOT.TFile.Open(file_path)
@@ -88,8 +88,9 @@ for fname in root_files:
         print(f"Warning: {fname} histogram integral = 0")
     # Plot
     label = os.path.splitext(fname)[0]
-    ax[0].plot(x_vals, y_vals, label=label, linewidth=1)
-    ax[1].plot(x_vals, y_vals, label=label, linewidth=1)
+    ax[0].plot(x_vals, y_vals, label=HUMAN_READABLE_PROCESS_NAMES[label], linewidth=1, linestyle=LINE_STYLES[label], color=PROCESS_COLORS[label])
+    ax[1].plot(x_vals, y_vals, label=HUMAN_READABLE_PROCESS_NAMES[label], linewidth=1, linestyle=LINE_STYLES[label], color=PROCESS_COLORS[label])
+    ax[2].plot(x_vals, y_vals, label=HUMAN_READABLE_PROCESS_NAMES[label], linewidth=1, linestyle=LINE_STYLES[label], color=PROCESS_COLORS[label])
     # Now make a Gaussian fit from x_vals 0.8 to 1.2. Plot it in that range as well and put sigma and mean in the legend
     # You can initialize parameters with stdev and mean
     # Do it here:
@@ -128,14 +129,18 @@ for fname in root_files:
             gauss(x_dense, A, mu, sigma),
             linestyle="--",
             linewidth=1,
-            #label=f"{label} fit μ={mu:.3f}, σ={sigma:.3f}",
         )
         ax[1].plot(
             x_dense,
             gauss(x_dense, A, mu, sigma),
             linestyle="--",
             linewidth=1,
-            #label=f"{label} fit μ={mu:.3f}, σ={sigma:.3f}",
+        )
+        ax[2].plot(
+            x_dense,
+            gauss(x_dense, A, mu, sigma),
+            linestyle="--",
+            linewidth=1,
         )
     else:
         print(f"Not enough points in [0.8, 1.2] for {fname} to fit.")
@@ -162,14 +167,16 @@ for fname in root_files:
     ax.plot(x_vals_ratio, y_vals_ratio, label=label + " (matched to partons)", linestyle='dashed', linewidth=1)'''
     #############
     # Print on the plot the text 'eta < -0.9'
-    #ax.text(0.95, 0.9 - 0.1 * root_files.index(fname), "eta < -0.9".format(label), transform=ax.transAxes)
-    ax[0].set_xlabel("E_reco / E_true")
-    ax[0].set_ylabel("Normalized Entries")
-    ax[0].set_title("Comparison of E_reco/E_true histograms (ee->ZH->nu nu g g)")
+    for i in range(3):
+        ax[i].set_xlabel("$E_{reco}$ / $E_{true}$")
+        ax[i].set_ylabel("Jets (normalized)")
+    #ax[0].set_title()
     ax[0].legend()
     ax[0].grid(True)
     ax[1].grid(True)
+    ax[2].grid(True)
     ax[1].set_xlim([0.85, 1.15])
+    ax[2].set_xlim([0.95, 1.05])
     f.Close()
 
 fig.tight_layout()
@@ -431,3 +438,77 @@ ax[0].set_ylabel("Normalized Entries / bin width")
 fig.tight_layout()
 fig.savefig("../../idea_fullsim/fast_sim/{}/{}/E_reco_over_true_Charged.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 plt.clf()
+
+# Histogram of ratio_jet_energies_fancy_Neutral_part and ratio_jet_energies_fancy_Charged_part and ratio_jet_energies_fancy
+# so basically neutral, charged and all particles - make one histogram for each root file (with three lines, Neutral, Charged, and All) and stack them vertically
+binsE = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+fig, ax = plt.subplots(len(root_files), len(binsE), figsize=(4 * len(binsE), 4 * len(root_files)))
+
+if len(root_files) == 1:
+    ax = np.array([ax])
+
+for i, fname in enumerate(root_files):
+    print("===> Plotting binned jet-level Ereco/Etrue neutral/charged/all for file", fname)
+    for j in range(len(binsE) - 1):
+        file_path = os.path.join(inputDir, fname)
+        f = ROOT.TFile.Open(file_path)
+        if not f or f.IsZombie():
+            print(f"Could not open {fname}")
+            continue
+        hist_neutral = f.Get("binned_E_Neutral_reco_over_true_{}_{}".format(binsE[j], binsE[j+1]))
+        hist_charged = f.Get("binned_E_Charged_reco_over_true_{}_{}".format(binsE[j], binsE[j+1]))
+        hist_all = f.Get("binned_E_reco_over_true_{}_{}".format(binsE[j], binsE[j+1]))
+        n_bins = hist_all.GetNbinsX()
+        x_vals = np.array([hist_all.GetBinCenter(i) for i in range(1, n_bins + 1)])
+        if hist_neutral:
+            y_vals_neutral = np.array([hist_neutral.GetBinContent(i) for i in range(1, n_bins + 1)])
+            y_vals_charged = np.array([hist_charged.GetBinContent(i) for i in range(1, n_bins + 1)])
+            integral_neutral = np.sum(y_vals_neutral)
+            integral_charged = np.sum(y_vals_charged)
+        y_vals_all = np.array([hist_all.GetBinContent(i) for i in range(1, n_bins + 1)])
+        # Normalize
+        integral_all = np.sum(y_vals_all)
+        step_size = x_vals[1] - x_vals[0]
+        if hist_neutral:
+            print("Integrals in {}: Neutral {}, Charged {}, All {}".format(fname, integral_neutral, integral_charged, integral_all))
+            if integral_neutral > 0:
+                y_vals_neutral = y_vals_neutral / integral_neutral / step_size
+            else:
+                print(f"Warning: {fname} neutral histogram integral = 0")
+            if integral_charged > 0:
+                y_vals_charged = y_vals_charged / integral_charged / step_size
+            else:
+                print(f"Warning: {fname} charged histogram integral = 0")
+        if integral_all > 0:
+            y_vals_all = y_vals_all / integral_all / step_size
+        else:
+            print(f"Warning: {fname} all histogram integral = 0")
+        label = os.path.splitext(fname)[0]
+        if hist_neutral:
+            ax[i, j].step(x_vals, y_vals_neutral, where='mid', label="Neutral", color="red")
+            ax[i, j].step(x_vals, y_vals_charged, where='mid', label="Charged", color="blue")
+        ax[i, j].step(x_vals, y_vals_all, where='mid', label="All", color="green")
+        ax[i, j].set_xlim([0.9, 1.1])
+        ax[i, j].set_title(label)
+        ax[i, j].set_xlabel("E_reco / E_true")
+        ax[i, j].set_ylabel("Normalized Entries / bin width")
+        ax[i, j].legend()
+        ax[i, j].grid()
+        label = os.path.splitext(fname)[0]
+        ax[i, j].set_title("{} [{},{}]GeV".format(HUMAN_READABLE_PROCESS_NAMES[label], binsE[j], binsE[j+1]))
+        f.Close()
+
+fig.tight_layout()
+fig.savefig("../../idea_fullsim/fast_sim/{}/{}/ratio_jet_energies_fancy_Neutral_Charged_All.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+
+# Now, convert all ax[i, j] into log y scale and then save this as the same file + "_log" in the end...
+for i in range(len(root_files)):
+    for j in range(len(binsE)):
+        ax[i, j].set_xlim([0.9, 1.1])
+        ax[i, j].set_yscale("log")
+
+fig.tight_layout()
+fig.savefig("../../idea_fullsim/fast_sim/{}/{}/ratio_jet_energies_fancy_Neutral_Charged_All_LOGSCALE.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+plt.clf()
+#plt.show()

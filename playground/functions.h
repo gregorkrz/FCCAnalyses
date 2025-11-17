@@ -705,6 +705,42 @@ std::vector<int> get_reco_truth_jet_mapping_greedy(Vec_rp reco_jets, Vec_rp gen_
 }
 
 
+vector<float> get_muon_energies(Vec_mc mc_particles) {
+// Return a Vec_mc of only the stable particles (generatorStatus == 1) //
+    vector<float> result;
+    for(auto & p : mc_particles) {
+        if(p.generatorStatus == 1) {
+            if (p.PDG != 13 && p.PDG != -13) {
+                continue; // Skip non-muons
+            }
+            float energy = std::sqrt(p.momentum.x * p.momentum.x +
+                                     p.momentum.y * p.momentum.y +
+                                     p.momentum.z * p.momentum.z +
+                                     p.mass * p.mass);
+            result.push_back(energy);
+        }
+    }
+    return result;
+}
+
+
+vector<float> get_reco_muon_energies(Vec_rp reco_particles) {
+    // Return a Vec_mc of only the stable particles (generatorStatus == 1) //
+    vector<float> result;
+    for(auto & p : reco_particles) {
+        if (p.PDG != 13 && p.PDG != -13) {
+            continue; // Skip non-muons
+        }
+        float energy = std::sqrt(p.momentum.x * p.momentum.x +
+                                 p.momentum.y * p.momentum.y +
+                                 p.momentum.z * p.momentum.z +
+                                 p.mass * p.mass);
+        result.push_back(energy);
+    }
+    return result;
+}
+
+
 Vec_rp stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
 // Return a Vec_mc of only the stable particles (generatorStatus == 1) //
     vector<rp> result;

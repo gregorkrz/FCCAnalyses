@@ -26,7 +26,5 @@ def get_jet_vars(df, vec_rp_name, N_durham=-1, ee_pt_cutoff=-1, AK_radius=-1, na
     #df = df.Define("fj_eta", "FCCAnalyses::Utils::rvec_to_vector(FCCAnalyses::JetClusteringUtils::get_eta({}.jets))".format(name))
     #df = df.Define("fj_phi", "FCCAnalyses::Utils::rvec_to_vector(FCCAnalyses::JetClusteringUtils::get_phi({}.jets))".format(name))
     #df = df.Define("fj_pt", "FCCAnalyses::Utils::rvec_to_vector(FCCAnalyses::JetClusteringUtils::get_pt({}.jets))".format(name))
-
     return df
-
 
