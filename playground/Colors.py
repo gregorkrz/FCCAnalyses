@@ -76,3 +76,21 @@ PROCESS_COLORS = {
     "AK12": "#542ba2",
 }
 
+NUMBER_OF_JETS = {
+    # 6 jets (blue)
+    "p8_ee_ZH_6jet_ecm240": 6,
+    "p8_ee_ZH_6jet_HF_ecm240": 6,
+    "p8_ee_ZH_6jet_LF_ecm240": 6,
+
+    # 4 jets (violet-magenta hues)
+    "p8_ee_ZH_bbbb_ecm240": 4,
+    "p8_ee_ZH_qqbb_ecm240": 4,
+    "p8_ee_ZH_bbgg_ecm240": 4,
+    "p8_ee_ZH_qqgg_ecm240": 4,
+
+    # 2 jets (teal-green hues)
+    "p8_ee_ZH_vvbb_ecm240": 2,
+    "p8_ee_ZH_vvgg_ecm240": 2,
+    "p8_ee_ZH_vvqq_ecm240": 2,
+}
+

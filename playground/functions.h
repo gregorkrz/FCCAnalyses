@@ -367,7 +367,8 @@ pair<vector<int>, Vec_rp> select_gt_particles(vector<int> gt_labels, Vec_mc mc_p
 }
 
 vector<int> getGTLabels(vector<int> initial_quarks, Vec_mc in, ROOT::VecOps::RVec<int> ind) {
-     // Note: some final-state products can have multiple initial quarks as ancestors, so this only makes sense e.g. for getting final-state particles coming from the Higgs
+    //
+    // Note: some final-state products can have multiple initial quarks as ancestors, so this only makes sense e.g. for getting final-state particles coming from the Higgs
     vector<int> result; // For each unique initial quark, get the list of all its decay products (recursively)
     // Set result to -1's of the size of in
     //rdfVerbose << "Getting GT labels for " << initial_quarks.size() << " initial quarks." << endl;

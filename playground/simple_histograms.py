@@ -2,14 +2,14 @@
 import os
 import ROOT
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
-from Colors import PROCESS_COLORS, HUMAN_READABLE_PROCESS_NAMES, LINE_STYLES
+from Colors import PROCESS_COLORS, HUMAN_READABLE_PROCESS_NAMES, LINE_STYLES, NUMBER_OF_JETS
 
 assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
 assert "FOLDER_NAME" in os.environ
 assert "HISTOGRAMS_FOLDER_NAME" in os.environ
 
-import matplotlib
 matplotlib.rcParams.update({
     #'font.sans-serif': "Arial",
     'font.family': "sans-serif", # Ensure Matplotlib uses the sans-serif family
@@ -23,7 +23,7 @@ inputDir = "../../idea_fullsim/fast_sim/{}/{}".format(os.environ["HISTOGRAMS_FOL
 root_files = [f for f in os.listdir(inputDir) if f.endswith(".root")]
 # remove "p8_ee_ZH_llbb_ecm365".root if it exists
 if "p8_ee_ZH_llbb_ecm365.root" in root_files:
-    root_files.remove("p8_ee_ZH_llbb_ecm365.root") # Quick fix we dont need that file for now
+    root_files.remove("p8_ee_ZH_llbb_ecm365.root") # Quick fix we don't need that file for now
 
 fig, ax = plt.subplots(3, 1, figsize=(6, 9)) #
 for fname in sorted(root_files):
@@ -238,6 +238,9 @@ plt.clf()
 fig, ax = plt.subplots(len(root_files), 2,  figsize=(8, 2.7 * len(root_files)))
 fig_mH_all, ax_mH_all = plt.subplots(1, 2, figsize=(8, 6)) # plot mH reco of all root files on the same plot, left side fully and right side zoomed into the peak
 
+fig_mH_njets, ax_mH_njets = plt.subplots(3, 2, figsize=(7, 9)) # plot separately: processes with 2 jets, 4 jets, 6 jets in the final state (each row would have a full plot of like 50-175 GeV and the second one zoomed in 105-145 GeV)
+fig_mH_perprocess, ax_mH_perprocess = plt.subplots(2, 2, figsize=(7, 9)) # first plot: 2, 4, 6 jets for the full lines (heavy flavour); second plot: 2,4,6 jets for dotted lines (light flavour)
+
 figlog, axlog = plt.subplots(len(root_files), 2, figsize=(8, 2.7 * len(root_files)))
 
 if len(root_files) == 1:
@@ -311,6 +314,35 @@ for i, fname in enumerate(sorted(root_files)):
     #ax_mH_all[1].step(x_vals_reco, y_vals_reco, where='mid', label=label, linestyle='solid')
     ax_mH_all[0].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle=LINE_STYLES[label], label=HUMAN_READABLE_PROCESS_NAMES[label])
     ax_mH_all[1].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle=LINE_STYLES[label], label=HUMAN_READABLE_PROCESS_NAMES[label])
+    # Plot the step onto ax_mH_NJets based on NUMBER_OF_JETS
+    njets = NUMBER_OF_JETS.get(label, None)
+    if njets in [2, 4, 6]:
+        row = {2: 0, 4: 1, 6: 2}[njets]
+        ax_mH_njets[row, 0].step(x_vals_reco, y_vals_reco, where='mid', label=HUMAN_READABLE_PROCESS_NAMES[label])
+        ax_mH_njets[row, 1].step(x_vals_reco, y_vals_reco, where='mid', label=HUMAN_READABLE_PROCESS_NAMES[label])
+        ax_mH_njets[row, 1].set_xlim([115, 135])
+        ax_mH_njets[row, 0].set_xlabel("$m_H$ [GeV]")
+        ax_mH_njets[row, 1].set_xlabel("$m_H$ [GeV]")
+        ax_mH_njets[row, 0].set_ylabel("Normalized Events")
+        ax_mH_njets[row, 0].set_title(f"{njets} jets")
+    # Plot the step onto ax_mH_perprocess based on line style (full line = heavy flavour, dotted = light flavour)
+    if LINE_STYLES.get(label, "") == "-": # full line
+        row = 0
+    elif LINE_STYLES.get(label, "") == ":": # dotted line
+        row = 1
+    else:
+        row = None
+    if row is not None:
+        ax_mH_perprocess[row, 0].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle="-", label=HUMAN_READABLE_PROCESS_NAMES[label])
+        ax_mH_perprocess[row, 1].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle="-", label=HUMAN_READABLE_PROCESS_NAMES[label])
+        ax_mH_perprocess[row, 1].set_xlim([110, 140])
+        ax_mH_perprocess[row, 0].set_xlabel("$m_H$ [GeV]")
+        ax_mH_perprocess[row, 1].set_xlabel("$m_H$ [GeV]")
+        ax_mH_perprocess[row, 0].set_ylabel("Normalized Events")
+        if row == 0:
+            ax_mH_perprocess[row, 0].set_title("Containing b-jets")
+        else:
+            ax_mH_perprocess[row, 0].set_title("Containing only light-flavour jets")
     #ax.plot(x_vals_reco, y_vals_reco, label=label + " (reco)", linestyle='solid')
     #ax.plot(x_vals_gen, y_vals_gen, label=label + " (gen)", linestyle='dashed')
     for k in range(2):
@@ -338,7 +370,15 @@ for i, fname in enumerate(sorted(root_files)):
 p = "../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_reco_vs_gen.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
 plog = "../../idea_fullsim/fast_sim/{}/{}/log_Higgs_mass_reco_vs_gen.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
 phiggs = "../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_reco_overlaid_mH_reco_normalized.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
-
+path_higgs_separate_by_process_type = ("../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_plots_sorted_per_process_type.pdf"
+                                .format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+path_higgs_separate_by_njets = ("../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_plots_sorted_per_N_jets.pdf"
+                                .format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+for i in range(len(ax_mH_perprocess)):
+    # set font of legen to
+    ax_mH_perprocess[i, 0].legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=11, title_fontsize=9)
+for i in range(len(ax_mH_njets)):
+    ax_mH_njets[i, 0].legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=11, title_fontsize=9)
 
 ax_mH_all[0].set_xlabel("$m_H$ [GeV]")
 ax_mH_all[1].set_xlabel("$m_H$ [GeV]")
@@ -357,6 +397,13 @@ figlog.tight_layout()
 figlog.savefig(plog)
 fig_mH_all.savefig(phiggs)
 print("Saving to", p, plog, phiggs)
+
+fig_mH_perprocess.tight_layout()
+fig_mH_njets.tight_layout()
+fig_mH_perprocess.savefig(path_higgs_separate_by_process_type)
+fig_mH_njets.savefig(path_higgs_separate_by_njets)
+print("Saving to", path_higgs_separate_by_process_type, path_higgs_separate_by_njets)
+plt.clf()
 
 
 # Make a plot of h_mH_all_stable_part
