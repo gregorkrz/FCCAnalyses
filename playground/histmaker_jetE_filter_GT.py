@@ -26,11 +26,6 @@ frac = 1
 processList = {
     #'p8_ee_WW_ecm365_fullhad': {'fraction': 1},
     ############## SINGLE HIGGS PROCESSES ##############
-    # 6 jets
-    "p8_ee_ZH_6jet_ecm240": {'fraction': frac},
-    "p8_ee_ZH_6jet_HF_ecm240": {'fraction': frac},
-    "p8_ee_ZH_6jet_LF_ecm240": {'fraction': frac},
-
     # 4 jets
     "p8_ee_ZH_qqbb_ecm240": {'fraction': frac},
     "p8_ee_ZH_bbbb_ecm240": {'fraction': frac},
@@ -41,6 +36,11 @@ processList = {
     "p8_ee_ZH_vvgg_ecm240": {'fraction': frac},
     "p8_ee_ZH_vvqq_ecm240": {'fraction': frac},
     "p8_ee_ZH_vvbb_ecm240": {'fraction': frac},
+
+    # 6 jets
+    "p8_ee_ZH_6jet_ecm240": {'fraction': frac},
+    "p8_ee_ZH_6jet_HF_ecm240": {'fraction': frac},
+    "p8_ee_ZH_6jet_LF_ecm240": {'fraction': frac},
 
     ##############2 jets: other detectors study #################
     #"p8_ee_ZH_vvgg_ecm240_CEPC":  {'fraction': frac},
@@ -128,6 +128,10 @@ includePaths = ["functions.h", "utils.h"]
 ########### Different output dirs ######################
 
 outputDir = "../../idea_fullsim/fast_sim/{}/{}".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ.get("FOLDER_NAME"))
+
+Fully_Matched_Only = os.environ.get("KEEP_ONLY_FULLY_MATCHED_EVENTS", "0").lower() == "1"
+if Fully_Matched_Only:
+    print("Keeping only fully matched events in the output histograms! Efficiency will be 1.")
 
 #outputDir = "../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet"
 #######################################################
@@ -272,6 +276,11 @@ def build_graph(df, dataset):
         hh1 = df.Histo1D(
             ("higher_res_binned_E_reco_over_true_{}_{}".format(bins[i], bins[i + 1]), "Ereco/Etrue;Ereco/Etrue;Events", 5000, 0,
              2.0), "binned_E_reco_over_true_{}_{}".format(bins[i], bins[i + 1])) # For some smaller experiments
+        histograms.append(hh1)
+        hh1 = df.Histo1D(
+            ("even_higher_res_binned_E_reco_over_true_{}_{}".format(bins[i], bins[i + 1]), "Ereco/Etrue;Ereco/Etrue;Events",
+             20000, 0,
+             2.0), "binned_E_reco_over_true_{}_{}".format(bins[i], bins[i + 1]))  # For some smaller experiments
         histograms.append(hh1)
         # do this for charged and neutral parts too
         if not os.environ.get("JET_ALGO", "durham").lower() == "calojetdurham":

@@ -103,8 +103,8 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
     if "higher_res" in root_histogram_prefix:
         print("Doing higher resolution histograms")
         eps = 0.0002
-    else:
-        raise Exception # TEMPORARILY
+    #else:
+    #    raise Exception # TEMPORARILY
     def get_std68(theHist, bin_edges, percentage=0.683, epsilon=eps):
         # theHist, bin_edges = np.histogram(data_for_hist, bins=bins, density=True)
         s =  np.sum(theHist * np.diff(bin_edges))
@@ -272,14 +272,13 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             print(f"Bin [{bins[i]}, {bins[i+1]}]: {method} = {std68:.4f}, low = {low:.4f}, high = {high:.4f}, MPV={MPV},N={np.sum(yc)}")
         else:
             print("NaN encountered in bin mid-point calculation.")
-    ax_hist[0].legend()
+    ax_hist[0].legend(fontsize=9)
     ax_hist[0].set_xlabel(r'$E_{reco} / E_{true}$')
     ax_hist[0].set_ylabel('Entries')
-    ax_hist[1].legend()
     ax_hist[1].set_xlabel(r'$E_{reco} / E_{true}$')
     ax_hist[1].set_ylabel('Entries')
-    ax_hist[1].set_xlim([0.85, 1.15])
-    ax_hist[2].set_xlim([0.85, 1.15])
+    ax_hist[1].set_xlim([0.75, 1.15])
+    ax_hist[2].set_xlim([0.75, 1.15])
     ax_hist[2].set_yscale("log")
     ax_hist[2].set_xlabel(r'$E_{reco} / E_{true}$')
     ax_hist[2].set_ylabel('Entries')

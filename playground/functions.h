@@ -765,6 +765,13 @@ Vec_rp stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
                     continue; // Skip neutrinos
                 }
             }
+            // Compute eta and remove particles with |eta| > 2.56
+            TLorentzVector p_lv;
+            p_lv.SetXYZM(p.momentum.x, p.momentum.y, p.momentum.z, p.mass);
+            float eta = p_lv.Eta();
+            if (abs(eta) > 2.56) {
+                continue; // Skip particles with |eta| > 2.56
+            }
             result.push_back(temp);
         }
     }

@@ -218,7 +218,7 @@ for fname in sorted(root_files):
     with np.errstate(divide='ignore', invalid='ignore'):
         ratio = np.true_divide(y_matched, y_all)
         ratio[~np.isfinite(ratio)] = 0  # set inf and NaN to 0
-    # Plot
+    # PlotR
     label = os.path.splitext(fname)[0]
     plt.plot(x_vals, ratio, LINE_STYLES[label], label=HUMAN_READABLE_PROCESS_NAMES[label], color=PROCESS_COLORS[label])
     plt.plot(x_vals, ratio, "x", color=PROCESS_COLORS[label])
@@ -335,7 +335,7 @@ for i, fname in enumerate(sorted(root_files)):
     if row is not None:
         ax_mH_perprocess[row, 0].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle="-", label=HUMAN_READABLE_PROCESS_NAMES[label])
         ax_mH_perprocess[row, 1].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle="-", label=HUMAN_READABLE_PROCESS_NAMES[label])
-        ax_mH_perprocess[row, 1].set_xlim([110, 140])
+        ax_mH_perprocess[row, 1].set_xlim([80, 140])
         ax_mH_perprocess[row, 0].set_xlabel("$m_H$ [GeV]")
         ax_mH_perprocess[row, 1].set_xlabel("$m_H$ [GeV]")
         ax_mH_perprocess[row, 0].set_ylabel("Normalized Events")
@@ -361,11 +361,8 @@ for i, fname in enumerate(sorted(root_files)):
         axlog[i, k].set_xlabel("$m_H$ [GeV]")
         axlog[i, k].set_ylabel("Events (norm.)")
         ax[i, k].set_title(label)
-    ax[i, 1].set_xlim([115, 135])
-    axlog[i, 1].set_xlim([115, 135])
-
-#ax.legend()
-#ax.set_yscale("log")
+    ax[i, 1].set_xlim([80, 140])
+    axlog[i, 1].set_xlim([80, 140])
 
 p = "../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_reco_vs_gen.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
 plog = "../../idea_fullsim/fast_sim/{}/{}/log_Higgs_mass_reco_vs_gen.pdf".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
@@ -374,11 +371,15 @@ path_higgs_separate_by_process_type = ("../../idea_fullsim/fast_sim/{}/{}/Higgs_
                                 .format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 path_higgs_separate_by_njets = ("../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_plots_sorted_per_N_jets.pdf"
                                 .format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+
 for i in range(len(ax_mH_perprocess)):
-    # set font of legen to
     ax_mH_perprocess[i, 0].legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=11, title_fontsize=9)
+    ax_mH_perprocess[i, 0].grid()
+    ax_mH_perprocess[i, 1].grid()
+
 for i in range(len(ax_mH_njets)):
     ax_mH_njets[i, 0].legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=11, title_fontsize=9)
+    ax_mH_njets[i, 0].grid()
 
 ax_mH_all[0].set_xlabel("$m_H$ [GeV]")
 ax_mH_all[1].set_xlabel("$m_H$ [GeV]")

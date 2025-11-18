@@ -16,26 +16,39 @@ from jet_helper import get_jet_vars
 '''
 PLOT IDX options:
 
-1: the slice of the E_reco/E_true around 0.9
+1: the slice of the E_reco/E_true around .75 and E_genjet > 75 GeV
 2: events with unmatched reco-to-gen jets
-3: events with invariant mass of the quarks < 100 GeV (what's happening?))
+3: events with invariant mass of the quarks < 100 GeV (What's happening?))
 4: events with invariant mass 123-127 GeV (Higgs mass window)
 5: events with invariant mass < 10 GeV
 6: all events
+7: events with mH_reco around 90-95 GeV
 '''
 
-PLOT_IDX = 6
 
-inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/Tiny_IDEA_20251105/"
-outputDir = "../../idea_fullsim/fast_sim/Histograms_20251112_Debug/EventDisplays_Durham_" + str(PLOT_IDX)
+if False:
+    # Check the weird 2nd small peak at around 95 GeV in Higgs mass reco distribution in vvqq (light-flavour) samples
+    PLOT_IDX = 7
+    inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/Tiny_IDEA_20251105/"
+    outputDir = "../../idea_fullsim/fast_sim/Histograms_20251112_Debug/EventDisplays_Durham_" + str(PLOT_IDX)
+    processList = {
+        "p8_ee_ZH_vvqq_ecm240": {'fraction': 1},
+    }
 
-gf = "GenJetDurhamN4"
-rf = "JetDurhamN4"
+if True:
+    # Check the small peak in jet-level Ereco/Etrue for 6-jet events that's messing with the reconstruction
+    PLOT_IDX = 1
+    inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/Tiny_IDEA_20251105/"
+    outputDir = "../../idea_fullsim/fast_sim/Histograms_20251112_Debug/EventDisplays_Durham_" + str(PLOT_IDX)
+    processList = {
+        "p8_ee_ZH_6jet_LF_ecm240": {'fraction': 1},
+    }
 
-if PLOT_IDX == 3 or PLOT_IDX == 4 or PLOT_IDX == 5 or PLOT_IDX == 6:
-    # Use the jets computed on-the-fly with FastJet
-    gf = "GenJetFastJet"
-    rf = "RecoJetFastJet"
+#gf = "GenJetDurhamN4"
+#rf = "JetDurhamN4"
+
+gf = "GenJetFastJet"
+rf = "RecoJetFastJet"
 
 nJets_processList = {
     "p8_ee_ZH_qqbb_ecm240": 4,
@@ -43,6 +56,8 @@ nJets_processList = {
     "p8_ee_ZH_vvbb_ecm240": 2,
     "p8_ee_ZH_bbbb_ecm240": 4,
     "p8_ee_ZH_vvgg_ecm240": 2,
+    "p8_ee_ZH_vvqq_ecm240": 2,
+    "p8_ee_ZH_6jet_LF_ecm240": 6
 }
 
 nJets_from_H_process_list = {
@@ -66,15 +81,7 @@ nJets_from_H_process_list = {
 }
 
 
-processList = {
-    #'p8_ee_WW_ecm365_fullhad': {'fraction': 0.01},
-    #"p8_ee_ZH_qqbb_ecm240": {'fraction': 0.01},
-    #"p8_ee_ZH_6jet_ecm240": {'fraction': 0.001}, # DEBUG THE 6-JET EVENT
-    #"p8_ee_ZH_vvbb_ecm240": {"fraction": 1},
-    "p8_ee_ZH_bbbb_ecm240": {'fraction': 1}, # Debug the 4-jet event
-    #"p8_ee_ZH_vvgg_ecm240": {'fraction': 0.01},
-    #"p8_ee_ZH_qqbb_ecm240": {'fraction': 1},
-}
+
 
 #def get_files(procname):
 #    prefix = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
@@ -99,7 +106,8 @@ includePaths = ["functions.h", "utils.h"]
 #inputDir = "../../idea_fullsim/fast_sim/outputs"
 
 
-def plot_filter(E_reco_over_true, n_unmatched, inv_mass_Higgs, idx=1):
+def plot_filter(E_reco_over_true, n_unmatched, inv_mass_Higgs, E_genjet, idx=1):
+    print("e genjet", E_genjet)
     if idx == 6:
         return True
     if idx == 5:
@@ -120,9 +128,14 @@ def plot_filter(E_reco_over_true, n_unmatched, inv_mass_Higgs, idx=1):
     if idx == 2 and n_unmatched > 0:
         return True
     elif idx == 1:
-        for E in E_reco_over_true:
-            if (E > 0.87) and (E < 0.93):
+        for i, E in enumerate(E_reco_over_true):
+            if (E > 0.73) and (E < 0.77) and (E_genjet[i] > 75.0):
                 return True
+    elif idx== 7:
+        if (inv_mass_Higgs > 90.0) and (inv_mass_Higgs < 95.0):
+            return True
+        else:
+            return False
     return False
 
 
@@ -158,7 +171,9 @@ def build_graph(df, dataset):
     df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
     df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
     df = df.Define("num_unmatched_reco_jets", "E_of_unmatched_reco_jets.size()")
+    df = df.Define("E_of_matched_gen_jets", "std::get<2>(matching_processing)")
     l = df.AsNumpy(["ratio_jet_energies_fancy"])["ratio_jet_energies_fancy"]
+    E_matched_jets = df.AsNumpy(["E_of_matched_gen_jets"])["E_of_matched_gen_jets"]
     n_unmatched = df.AsNumpy(["num_unmatched_reco_jets"])["num_unmatched_reco_jets"]
     l = list([list(item) for item in l])
     n_unmatched = list(n_unmatched)
@@ -261,7 +276,7 @@ def build_graph(df, dataset):
     #print("Inv mass gen all (first 5 entries):", inv_mass_gen_all[:5])
     for event_idx in range(len(l)):
         ##assert n_unmatched[event_idx]  ==  len([x for x in l[event_idx] if x < 0]), "n_unmatched does not match the length of unmatched jets!:" + str(n_unmatched[event_idx]) + " vs " + str(len([x for x in l[event_idx] if x < 0]))
-        if plot_filter(l[event_idx], n_unmatched[event_idx], inv_mass_reco_higgs[event_idx], idx=PLOT_IDX):
+        if plot_filter(l[event_idx], n_unmatched[event_idx], inv_mass_reco_higgs[event_idx], E_matched_jets[event_idx] , idx=PLOT_IDX):
             if global_event_idx.get(dataset, 0) > 10:
                 return [], weightsum # Just plot 10 events... #
             #event_idx = # I want an event idx that is unique per dataset, even with multiple input root files. How do I do this?
