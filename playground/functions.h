@@ -80,6 +80,38 @@ vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the M
   return res;
 }*/
 
+JetClustering::FCCAnalysesJet match_genjet_constituents_to_reco_particles (Vec_rp reco_particles, JetClustering::FCCAnalysesJet gen_jets, vector<int> mc2rp, vector<int> stable_gen_particle_idx) {
+    /*
+        This function matches the constituents of the gen jets to the reco particles using the mc2rp mapping.
+        It returns a JetClustering::FCCAnalysesJet object and constituents. The jet properties are computed out
+        of the reco particles.
+    */
+    vector<fastjet::PseudoJet> jets;
+    vector<vector<int>> constituents;
+    for (size_t i = 0; i < gen_jets.jets.size(); ++i) {
+        auto & gen_jet = gen_jets.jets[i];
+        // initialize a four-vector and then fill it with four-vectors of reco particle constituents
+        fastjet::PseudoJet reco_jet(0,0,0,0);
+        vector<int> gen_constituents = gen_jets.constituents[i];
+        vector<int> reco_constituents;
+        for (auto & mc_idx_stable : gen_constituents) {
+            int mc_idx = stable_gen_particle_idx[mc_idx_stable];
+            if(mc_idx >= 0 && mc_idx < mc2rp.size()) {
+                int rp_idx = mc2rp[mc_idx];
+                if(rp_idx >= 0 && rp_idx < reco_particles.size()) {
+                    reco_constituents.push_back(rp_idx);
+                    auto & p = reco_particles[rp_idx];
+                    fastjet::PseudoJet pj(p.momentum.x, p.momentum.y, p.momentum.z, p.energy);
+                    reco_jet += pj;
+                }
+            }
+        }
+        jets.push_back(reco_jet);
+        constituents.push_back(reco_constituents);
+    }
+    return JetClustering::FCCAnalysesJet(jets, constituents);
+}
+
 Vec_rp get_particles_from_mc2rp(vector<int> mc_part_idx, vector<int> mc2rp, Vec_rp reco_particles) {
     // For each mc part idx, pick the appropriate reco particle
     vector<rp> result;
@@ -742,17 +774,16 @@ vector<float> get_reco_muon_energies(Vec_rp reco_particles) {
 }
 
 
-Vec_rp stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
-// Return a Vec_mc of only the stable particles (generatorStatus == 1) //
+pair<Vec_rp, vector<int>> stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
+    // Return a Vec_mc of only the stable particles (generatorStatus == 1), as well as their original indices in mc_particles
     vector<rp> result;
+    vector<int> original_indices;
     for(auto & p : mc_particles) {
         if(p.generatorStatus == 1) {
             rp temp;
             temp.momentum[0] = p.momentum.x;
             temp.momentum[1] = p.momentum.y;
             temp.momentum[2] = p.momentum.z;
-            //rdfVerbose << "momentum temp" << temp.momentum[0] << " " << temp.momentum[1] << " " <<  temp.momentum[2];
-            //exit(0);
             temp.mass = p.mass;
             temp.charge = p.charge;
             temp.PDG = p.PDG;
@@ -773,9 +804,10 @@ Vec_rp stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
                 continue; // Skip particles with |eta| > 2.56
             }
             result.push_back(temp);
+            original_indices.push_back(&p - &mc_particles[0]); // index of p in mc_particles
         }
     }
-    return convert(result);
+    return make_pair(convert(result), original_indices);
 }
 
 float invariant_mass(Vec_rp jets, int expected_num_jets = -1) { // vec_rp could be either reco jets, gen jets, filtered jets, or just all reco particles

@@ -180,7 +180,7 @@ def build_graph(df, dataset):
     print("Number of unmatched reco jets per event: ", n_unmatched)
     df = df.Define("_serialized_evt", "FCCAnalyses::Utils::serialize_event(ReconstructedParticles);")
     df = df.Define("_serialized_calo_jets", "FCCAnalyses::Utils::serialize_event(CaloJetDurham);")
-    df = df.Define("stable_gen_part_neutrinoFilter", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
+    df = df.Define("stable_gen_part_neutrinoFilter", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true).first")
     # Durham jets
 
     df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", N_durham=nJets_processList[dataset], name="FastJet_jets")

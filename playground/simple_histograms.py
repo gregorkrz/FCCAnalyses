@@ -320,7 +320,7 @@ for i, fname in enumerate(sorted(root_files)):
         row = {2: 0, 4: 1, 6: 2}[njets]
         ax_mH_njets[row, 0].step(x_vals_reco, y_vals_reco, where='mid', label=HUMAN_READABLE_PROCESS_NAMES[label])
         ax_mH_njets[row, 1].step(x_vals_reco, y_vals_reco, where='mid', label=HUMAN_READABLE_PROCESS_NAMES[label])
-        ax_mH_njets[row, 1].set_xlim([115, 135])
+        ax_mH_njets[row, 1].set_xlim([80, 150])
         ax_mH_njets[row, 0].set_xlabel("$m_H$ [GeV]")
         ax_mH_njets[row, 1].set_xlabel("$m_H$ [GeV]")
         ax_mH_njets[row, 0].set_ylabel("Normalized Events")
@@ -335,7 +335,7 @@ for i, fname in enumerate(sorted(root_files)):
     if row is not None:
         ax_mH_perprocess[row, 0].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle="-", label=HUMAN_READABLE_PROCESS_NAMES[label])
         ax_mH_perprocess[row, 1].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle="-", label=HUMAN_READABLE_PROCESS_NAMES[label])
-        ax_mH_perprocess[row, 1].set_xlim([80, 140])
+        ax_mH_perprocess[row, 1].set_xlim([80, 150])
         ax_mH_perprocess[row, 0].set_xlabel("$m_H$ [GeV]")
         ax_mH_perprocess[row, 1].set_xlabel("$m_H$ [GeV]")
         ax_mH_perprocess[row, 0].set_ylabel("Normalized Events")
@@ -380,6 +380,7 @@ for i in range(len(ax_mH_perprocess)):
 for i in range(len(ax_mH_njets)):
     ax_mH_njets[i, 0].legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=11, title_fontsize=9)
     ax_mH_njets[i, 0].grid()
+    ax_mH_njets[i, 1].grid()
 
 ax_mH_all[0].set_xlabel("$m_H$ [GeV]")
 ax_mH_all[1].set_xlabel("$m_H$ [GeV]")

@@ -7,7 +7,7 @@
 # List of processes (mandatory)
 
 from truth_matching import get_Higgs_mass_with_truth_matching
-from jet_helper import get_jet_vars
+from jet_helper import get_jet_vars, get_jet_vars_from_genjet_matching
 import os
 
 assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
@@ -131,7 +131,7 @@ outputDir = "../../idea_fullsim/fast_sim/{}/{}".format(os.environ["HISTOGRAMS_FO
 
 Fully_Matched_Only = os.environ.get("KEEP_ONLY_FULLY_MATCHED_EVENTS", "0").lower() == "1"
 if Fully_Matched_Only:
-    print("Keeping only fully matched events in the output histograms! Efficiency will be 1.")
+    print("Keeping only fully matched events in the output histograms! Jet matching efficiency will be 1.")
 
 #outputDir = "../../idea_fullsim/fast_sim/histograms_view/GenJetEEKtFastJet"
 #######################################################
@@ -180,11 +180,21 @@ def build_graph(df, dataset):
     #print("Calo hit energies:", che)
     #df = df.Define("n_jets", "Jet.size()")
     # Compute energy of hardest jet over energy of hardest genjet
-    df = df.Define("stable_gen_particles", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
+    df = df.Define("_stable_gen_particles", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true)")
+    df = df.Define("stable_gen_particles", "_stable_gen_particles.first")
+    df = df.Define("stable_gen_particles_idx", "_stable_gen_particles.second")
+    df = df.Define("reco_mc_links",
+                   "FCCAnalyses::ZHfunctions::getRP2MC_index(_RecoMCLink_from.index, _RecoMCLink_to.index, ReconstructedParticles, Particle)")
+    df = df.Define("mc2rp", "reco_mc_links.second")
     # For Durham:
     if os.environ.get("JET_ALGO", "durham").lower() == "durham":
         df = get_jet_vars(df, "stable_gen_particles", N_durham=nJets_processList[dataset], name="FastJet_jets")
-        df = get_jet_vars(df, "ReconstructedParticles", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
+        if os.environ.get("MATCH_RECO_JETS", "0") == "1":
+            # if set to 1, it will use reco jets that are made out of the particles matched to the gen jet constituents
+            print("No reco clustering - simply match gen jet constituents to corresponding reco particles")
+            df = get_jet_vars_from_genjet_matching(df, name="FastJet_jets_reco", genjet_name="FastJet_jets")
+        else:
+            df = get_jet_vars(df, "ReconstructedParticles", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
     elif os.environ.get("JET_ALGO", "durham").lower() == "ak":
         ak_radius = float(os.environ.get("AK_RADIUS", "0.4"))
         df = get_jet_vars(df, "stable_gen_particles", AK_radius=ak_radius, name="FastJet_jets")
@@ -231,6 +241,10 @@ def build_graph(df, dataset):
     hist_min_dist_jets_reco = df.Histo1D(("h_min_dist_jets_reco", "Min distance between reco jets;min #DeltaR(jet_i, jet_j);Events", 100, 0, 5), "min_distance_between_recojets")
     df = df.Define("matched_genjet_E_and_all_genjet_E", "FCCAnalyses::ZHfunctions::matched_genjet_E_and_all_genjet_E(fancy_matching, {})".format(GenJetVariable))
     df = df.Define("matched_genjet_energies", "std::get<0>(matched_genjet_E_and_all_genjet_E)")
+    if Fully_Matched_Only:
+        # filter by matched_genjet_energies.size() == genjet_energies.size() && genjet_energies.size() == nJets_processList[dataset]
+        print("Filtering! Number of matched jets should be equal to", nJets_processList[dataset])
+        df = df.Filter("(matched_genjet_energies.size() == genjet_energies.size()) && (genjet_energies.size() == {})".format(nJets_processList[dataset]))
     df = df.Define("all_genjet_energies", "std::get<1>(matched_genjet_E_and_all_genjet_E)")
     hist_genjet_all_energies = df.Histo1D(("h_genjet_all_energies", "E of all gen jets;E_gen;Events", 10, 0, 200), "all_genjet_energies")
     hist_genjet_matched_energies = df.Histo1D(("h_genjet_matched_energies", "E of matched gen jets;E_gen;Events", 10, 0, 200), "matched_genjet_energies")
@@ -261,6 +275,9 @@ def build_graph(df, dataset):
         print("Charged gen jet energies:", df.AsNumpy(["genjet_energy_Charged"])["genjet_energy_Charged"][:5])
 
     df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
+    # print the first 5 elements
+    rjefc = df.AsNumpy(["ratio_jet_energies_fancy"])["ratio_jet_energies_fancy"]
+    print("Reco/Gen jet energy ratios (sanity check):", rjefc[:5])
     df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
     df = df.Define("num_unmatched_reco_jets", "E_of_unmatched_reco_jets.size()")
     df = df.Define("genjet_energies_matched", "std::get<2>(matching_processing)")

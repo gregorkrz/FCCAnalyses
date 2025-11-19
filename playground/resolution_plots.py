@@ -265,7 +265,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             raise ValueError(f"Unknown sigma method: {sigma_method}")
         lo_hi_MPV.append([low, high, MPV])
         bin_mid = 0.5 * (bins[i] + bins[i + 1])
-        if not np.isnan(bin_mid) and not np.isnan(std68) and n_jets_in_bin > 10000: # more than 10k statistics for a good fit with the fine binning that we are using
+        if not np.isnan(bin_mid) and not np.isnan(std68) and n_jets_in_bin > 50000: # more than 10k statistics for a good fit with the fine binning that we are using
             bin_mid_points.append(bin_mid)
             sigmaEoverE.append(std68 / MPV)
             responses.append(MPV)

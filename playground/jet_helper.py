@@ -28,3 +28,9 @@ def get_jet_vars(df, vec_rp_name, N_durham=-1, ee_pt_cutoff=-1, AK_radius=-1, na
     #df = df.Define("fj_pt", "FCCAnalyses::Utils::rvec_to_vector(FCCAnalyses::JetClusteringUtils::get_pt({}.jets))".format(name))
     return df
 
+def get_jet_vars_from_genjet_matching(df, name="FastJet_jets", genjet_name="GenJet_jets"):
+    '''
+        vec_rp_name: name of the vector of ReconstructedParticles in the dataframe
+    '''
+    df = df.Define(name, "FCCAnalyses::ZHfunctions::match_genjet_constituents_to_reco_particles(ReconstructedParticles, {}, mc2rp, stable_gen_particles_idx)".format(genjet_name))
+    return df
