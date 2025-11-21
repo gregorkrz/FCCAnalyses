@@ -4,13 +4,15 @@ import matplotlib.pyplot as plt
 import pickle
 
 methods = {
-    "PFDurham_ISR": "PF Durham",
-    "CaloJetDurham_ISR": "Calo Durham"
+    "PFDurham_ISR_FullyMatched": "PF Durham",
+    "CaloJetDurham_ISR_FullyMatched": "Calo Durham",
+    "PFDurham_ISR_FullyMatched_MatchRecoJets": "PF Durham - ideal jet matching"
 }
 
 line_styles = {
-    "PFDurham_ISR": "-",
-    "CaloJetDurham_ISR": ":"
+    "PFDurham_ISR_FullyMatched": "-",
+    "CaloJetDurham_ISR_FullyMatched": ":",
+    "PFDurham_ISR_FullyMatched_MatchRecoJets": "--"
 }
 
 processes = {
@@ -40,11 +42,10 @@ nJets_processList = {
 }
 
 main_dir = "../../idea_fullsim/fast_sim/{hist_folder_name}/{method_name}/energy_fit_params_per_process.pkl"
-hist_folder_name = "Histograms_ECM240_20251105"
+hist_folder_name = "Histograms_ECM240_20251105_MatchR10"
 
-for fit_method in ["gaussian_fit", "std68"]:
+for fit_method in ["std68"]:
     fig, ax = plt.subplots(1, 1, figsize=(6, 3))
-
     for method in methods:
         method_name = method
         file_path = main_dir.format(hist_folder_name=hist_folder_name, method_name=method_name)
@@ -65,8 +66,6 @@ for fit_method in ["gaussian_fit", "std68"]:
                 marker="o",
                 color="C{}".format(list(processes.keys()).index(process))
         )
-
-
     ax.legend()
     ax.set_xlabel("Number of jets in event")
     ax.set_ylabel("Stochastic term (A)")

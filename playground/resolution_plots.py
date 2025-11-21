@@ -307,15 +307,17 @@ method_to_color = {
 
 jet_part_to_histogram_prefix = {
     "": "binned_E_reco_over_true_",
-    "_charged": "binned_E_Charged_reco_over_true_",
-    "_neutral": "binned_E_Neutral_reco_over_true_",
+    "_charged": "higher_res_binned_E_Charged_reco_over_true_",
+    "_neutral": "higher_res_binned_E_Neutral_reco_over_true_",
     "_higherRes": "higher_res_binned_E_reco_over_true_",
 }
 
-for jet_part in [ "_higherRes"]:
+
+for jet_part in [ "_higherRes", "_neutral", "_charged"]:
     fig_resolution_per_process, ax_resolution_per_process = plt.subplots(len(processList), 2,
                                                                          figsize=(8, 4 * len(processList)),
                                                                          sharex=False)
+    fig_resolution_per_process_Njets, ax_resolution_per_process_Njets = plt.subplots(2, 2, figsize=(9, 9), sharex=False)
     # Left column: resolution, right column: response. Comparison of gaussian_fit and std68
     for method in ["gaussian_fit", "std68"]:
         print("-----------------------------------------------------------")
@@ -343,7 +345,7 @@ for jet_part in [ "_higherRes"]:
             print(f"Fitted parameters for {process} using {method}: a={popt[0]:.4f}, b={popt[1]:.4f}")
             if process not in process_popt_storage:
                 process_popt_storage[process] = {}
-            process_popt_storage[process][method] = (popt, pcov, xs, ys)
+            process_popt_storage[process][method] = (popt, pcov, xs, ys, bin_mid_points, sigmaEoverE)
             ax[0].plot(bin_mid_points, sigmaEoverE, "x", color=clr)
             ax[0].plot(xs, ys, LINE_STYLES[process], color=clr, label=HUMAN_READABLE_PROCESS_NAMES[process] + f" A={round(popt[0], 2)} B={round(popt[1], 2)}")
             ax[1].plot(bin_mid_points, resp, ".--", label=process, color=clr)
@@ -352,6 +354,18 @@ for jet_part in [ "_higherRes"]:
                 ax_resolution_per_process[proc_idx, 0].plot(xs, ys, LINE_STYLES[process], color=method_to_color[method])
                 ax_resolution_per_process[proc_idx, 0].set_title(HUMAN_READABLE_PROCESS_NAMES[process])
                 ax_resolution_per_process[proc_idx, 1].plot(bin_mid_points, resp, ".--", label=method, color=method_to_color[method])
+            if method == "std68":
+                if LINE_STYLES.get(process, "") == "-":  # full line
+                    row = 0
+                elif LINE_STYLES.get(process, "") == ":":  # dotted line
+                    row = 1
+                else:
+                    row = None
+                # Plot the b-jet containing events on the top plot, and light-jet containing events on the bottom plot
+                if row is not None:
+                    ax_resolution_per_process_Njets[row, 0].plot(bin_mid_points, sigmaEoverE, "x", label=HUMAN_READABLE_PROCESS_NAMES[process] + f" A={round(popt[0], 2)} B={round(popt[1], 2)}", color=clr)
+                    ax_resolution_per_process_Njets[row, 0].plot(xs, ys, "--", color=clr)
+                    ax_resolution_per_process_Njets[row, 1].plot(bin_mid_points, resp, ".--", label=HUMAN_READABLE_PROCESS_NAMES[process], color=clr)
             ax_resolution_per_process[proc_idx, 0].set_xlabel('$E_{true}$ [GeV]')
             ax_resolution_per_process[proc_idx, 0].set_ylabel(r'$\sigma_E / E$')
             ax_resolution_per_process[proc_idx, 1].set_xlabel('$E_{true}$ [GeV]')
@@ -360,10 +374,19 @@ for jet_part in [ "_higherRes"]:
             ax_resolution_per_process[proc_idx, 0].legend()
             ax_resolution_per_process[proc_idx, 0].grid(True)
             ax_resolution_per_process[proc_idx, 1].grid(True)
+        ax_resolution_per_process_Njets[0, 0].set_title("Final state containing b-jets")
+        ax_resolution_per_process_Njets[1, 0].set_title("Final state containing only light and gluon jets")
+        ax_resolution_per_process_Njets[0, 0].legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=9.5, title_fontsize=8)
+        ax_resolution_per_process_Njets[1, 0].legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=9.5, title_fontsize=8)
+        ax_resolution_per_process_Njets[0, 0].set_xlabel('$E_{true}$ [GeV]')
+        ax_resolution_per_process_Njets[0, 1].set_xlabel('$E_{true}$ [GeV]')
+        ax_resolution_per_process_Njets[0, 0].set_ylabel(r'$\sigma_E / E$')
+        ax_resolution_per_process_Njets[1, 0].set_ylabel(r'$\sigma_E / E$')
+        ax_resolution_per_process_Njets[1, 1].set_ylabel(r'$\sigma_E / E$')
         ax[0].legend()
         ax[0].set_xlabel('$E_{true}$ [GeV]')
         ax[0].set_ylabel(r'$\sigma_E / E$')
-        ax[0].set_title(r'Jet Energy Resolution ($\frac{A}{\sqrt{E}}$ ⊕ $B$ )')
+        ax[0].set_title(r'Jet Energy Resolution ($\frac{A}{\sqrt{E}}$ ⊕ $B$)')
         ax[0].grid(True, alpha=0.3)
         ax[1].set_ylabel("Response")
         ax[1].set_xlabel('$E_{true}$ [GeV]')
@@ -371,8 +394,9 @@ for jet_part in [ "_higherRes"]:
         fig.tight_layout()
         fig.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_{}.pdf".format(histograms_folder, args.output, method))
     fig_resolution_per_process.tight_layout()
+    fig_resolution_per_process_Njets.tight_layout()
     fig_resolution_per_process.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_per_process_comparison{}.pdf".format(histograms_folder, args.output, jet_part))
-
+    fig_resolution_per_process_Njets.savefig("../../idea_fullsim/fast_sim/{}/{}/jet_energy_resolution_per_process_comparison_Njets{}.pdf".format(histograms_folder, args.output, jet_part))
 
 pickle.dump(process_popt_storage, open("../../idea_fullsim/fast_sim/{}/{}/energy_fit_params_per_process.pkl".format(histograms_folder, args.output), "wb"))
 method_to_color = {"std68": "blue", "RMS": "orange", "interquantile_range": "green", "DSCB": "red", "gaussian_fit": "purple"}

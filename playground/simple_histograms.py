@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
 from Colors import PROCESS_COLORS, HUMAN_READABLE_PROCESS_NAMES, LINE_STYLES, NUMBER_OF_JETS
+import pickle
 
 assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
 assert "FOLDER_NAME" in os.environ
@@ -238,14 +239,16 @@ plt.clf()
 fig, ax = plt.subplots(len(root_files), 2,  figsize=(8, 2.7 * len(root_files)))
 fig_mH_all, ax_mH_all = plt.subplots(1, 2, figsize=(8, 6)) # plot mH reco of all root files on the same plot, left side fully and right side zoomed into the peak
 
-fig_mH_njets, ax_mH_njets = plt.subplots(3, 2, figsize=(7, 9)) # plot separately: processes with 2 jets, 4 jets, 6 jets in the final state (each row would have a full plot of like 50-175 GeV and the second one zoomed in 105-145 GeV)
-fig_mH_perprocess, ax_mH_perprocess = plt.subplots(2, 2, figsize=(7, 9)) # first plot: 2, 4, 6 jets for the full lines (heavy flavour); second plot: 2,4,6 jets for dotted lines (light flavour)
+fig_mH_njets, ax_mH_njets = plt.subplots(3, 2, figsize=(7, 9)) # Plot separately: processes with 2 jets, 4 jets, 6 jets in the final state (each row would have a full plot of like 50-175 GeV and the second one zoomed in 105-145 GeV)
+fig_mH_perprocess, ax_mH_perprocess = plt.subplots(2, 2, figsize=(7, 9)) # First plot: 2, 4, 6 jets for the full lines (heavy flavour); second plot: 2,4,6 jets for dotted lines (light flavour)
 
 figlog, axlog = plt.subplots(len(root_files), 2, figsize=(8, 2.7 * len(root_files)))
 
 if len(root_files) == 1:
     ax = np.array([ax])
     axlog = np.array([axlog])
+
+process_to_mH_hist_plots = {}
 
 # Higgs mass histogram
 for i, fname in enumerate(sorted(root_files)):
@@ -312,8 +315,21 @@ for i, fname in enumerate(sorted(root_files)):
         print(f"Warning: {fname} histogram integral = 0")
     #ax_mH_all[0].step(x_vals_reco, y_vals_reco, where='mid', label=label, linestyle='solid')
     #ax_mH_all[1].step(x_vals_reco, y_vals_reco, where='mid', label=label, linestyle='solid')
+
     ax_mH_all[0].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle=LINE_STYLES[label], label=HUMAN_READABLE_PROCESS_NAMES[label])
     ax_mH_all[1].step(x_vals_reco, y_vals_reco, where='mid', color=PROCESS_COLORS[label], linestyle=LINE_STYLES[label], label=HUMAN_READABLE_PROCESS_NAMES[label])
+
+    process_to_mH_hist_plots[label] = {
+        "x_vals_reco": x_vals_reco,
+        "y_vals_reco": y_vals_reco,
+        "x_vals_gen": x_vals_gen,
+        "y_vals_gen": y_vals_gen,
+        "x_vals_gt": x_vals_gt,
+        "y_vals_gt": y_vals_gt,
+        "x_vals_gt_recomatched": x_vals_gt_recomatched,
+        "y_vals_gt_recomatched": y_vals_gt_recomatched,
+    }
+
     # Plot the step onto ax_mH_NJets based on NUMBER_OF_JETS
     njets = NUMBER_OF_JETS.get(label, None)
     if njets in [2, 4, 6]:
@@ -371,6 +387,10 @@ path_higgs_separate_by_process_type = ("../../idea_fullsim/fast_sim/{}/{}/Higgs_
                                 .format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
 path_higgs_separate_by_njets = ("../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_plots_sorted_per_N_jets.pdf"
                                 .format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"]))
+
+# Save the Higgs histograms in a pkl file for easier comparisons
+path_Higgs_pkl = "../../idea_fullsim/fast_sim/{}/{}/Higgs_mass_histograms_data.pkl".format(os.environ["HISTOGRAMS_FOLDER_NAME"], os.environ["FOLDER_NAME"])
+pickle.dump(process_to_mH_hist_plots, open(path_Higgs_pkl, "wb"))
 
 for i in range(len(ax_mH_perprocess)):
     ax_mH_perprocess[i, 0].legend(title="l ∈ {u, d, s}; q ∈ {u, d, s, c, b}", fontsize=11, title_fontsize=9)
