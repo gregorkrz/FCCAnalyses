@@ -11,7 +11,7 @@ import pickle
 import matplotlib
 matplotlib.rcParams.update({
     #'font.sans-serif': "Arial",
-    'font.family': "sans-serif", # Ensure Matplotlib uses the sans-serif family
+    'font.family': "sans-serif",           # Ensure Matplotlib uses the sans-serif family
     #"mathtext.fontset": "stix",           # serif math, similar to LaTeX Times
     #"mathtext.default": "it",             # math variables italic by default
     "font.size": 12
@@ -45,14 +45,6 @@ def neg_format(number):
         return point_format("n{}".format(abs(number)))
     else:
         return point_format(number)
-
-processList = {
-    "p8_ee_ZH_qqbb_ecm240": {'fraction': 1},
-    "p8_ee_ZH_6jet_ecm240": {'fraction': 1},
-    "p8_ee_ZH_vvbb_ecm240": {'fraction': 1},
-    "p8_ee_ZH_bbbb_ecm240": {'fraction': 1},
-    "p8_ee_ZH_vvgg_ecm240": {'fraction': 1},
-}
 
 processList = {}
 
@@ -91,7 +83,6 @@ def double_crystal_ball(x, mu, sigma, alphaL, nL, alphaR, nR, norm):
         * np.exp(-0.5 * alphaR**2)
         / (nR / abs(alphaR) - abs(alphaR) + t[maskR]) ** nR
     )
-
     return result
 
 
@@ -107,6 +98,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
     #    raise Exception # TEMPORARILY
     def get_std68(theHist, bin_edges, percentage=0.683, epsilon=eps):
         # theHist, bin_edges = np.histogram(data_for_hist, bins=bins, density=True)
+        theHist[0] = 0.0
         s =  np.sum(theHist * np.diff(bin_edges))
         if s != 0:
             theHist /= s  # normalize the histogram to 1
@@ -138,7 +130,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             # Didn't fit well, try mean and stdev
             # Compute the stdev from the histogram
             std68 = 0.0
-            print("Fitting didnt work")
+            print("Fitting didn't work")
             mean = np.sum([(0.5 * (bin_edges[i] + bin_edges[i + 1])) * theHist[i] * (bin_edges[i + 1] - bin_edges[i]) for i in range(len(theHist))])
             print("MEAN", mean)
             std68 = np.sqrt(np.sum([((0.5 * (bin_edges[i] + bin_edges[i + 1])) - mean) ** 2 * theHist[i] * (bin_edges[i + 1] - bin_edges[i]) for i in range(len(theHist))]))
@@ -265,11 +257,12 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
             raise ValueError(f"Unknown sigma method: {sigma_method}")
         lo_hi_MPV.append([low, high, MPV])
         bin_mid = 0.5 * (bins[i] + bins[i + 1])
-        if not np.isnan(bin_mid) and not np.isnan(std68) and n_jets_in_bin > 50000: # more than 10k statistics for a good fit with the fine binning that we are using
+        if (not np.isnan(bin_mid)) and (not np.isnan(std68)) and n_jets_in_bin > 50000:
+            # More than 10k statistics for a good fit with the fine binning that we are using
             bin_mid_points.append(bin_mid)
             sigmaEoverE.append(std68 / MPV)
             responses.append(MPV)
-            print(f"Bin [{bins[i]}, {bins[i+1]}]: {method} = {std68:.4f}, low = {low:.4f}, high = {high:.4f}, MPV={MPV},N={np.sum(yc)}")
+            print(f"Bin [{bins[i]}, {bins[i+1]}]: {method} = {std68:.4f}, low = {low:.4f}, high = {high:.4f}, MPV={MPV},N={np.sum(yc)} N_in_bin={n_jets_in_bin}")
         else:
             print("NaN encountered in bin mid-point calculation.")
     ax_hist[0].legend(fontsize=9)
@@ -284,8 +277,8 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
     ax_hist[2].set_ylabel('Entries')
     return bin_mid_points, sigmaEoverE, fig_hist, responses, bins_to_histograms, lo_hi_MPV
 
-
 bin_to_histograms_storage = {}
+bin_to_histograms_storage_neutral = {}
 method_low_high_mid_point_storage = {}
 
 def get_func_fit(mid_points, Rs):
@@ -298,7 +291,7 @@ def get_func_fit(mid_points, Rs):
     ys = resolution_func(xs, *popt)
     return xs, ys, popt, pcov
 
-process_popt_storage = {} # store the covariance matrix and optimal parameters for each process
+process_popt_storage = {} # Store the covariance matrix and optimal parameters for each process
 
 method_to_color = {
     "std68": "blue",
@@ -310,16 +303,16 @@ jet_part_to_histogram_prefix = {
     "_charged": "higher_res_binned_E_Charged_reco_over_true_",
     "_neutral": "higher_res_binned_E_Neutral_reco_over_true_",
     "_higherRes": "higher_res_binned_E_reco_over_true_",
+    "_photons": "higher_res_binned_E_Photon_reco_over_true_"
 }
 
-
-for jet_part in [ "_higherRes", "_neutral", "_charged"]:
+for jet_part in ["_photons", "_neutral", "_charged", "_higherRes"]:
     fig_resolution_per_process, ax_resolution_per_process = plt.subplots(len(processList), 2,
                                                                          figsize=(8, 4 * len(processList)),
                                                                          sharex=False)
     fig_resolution_per_process_Njets, ax_resolution_per_process_Njets = plt.subplots(2, 2, figsize=(9, 9), sharex=False)
     # Left column: resolution, right column: response. Comparison of gaussian_fit and std68
-    for method in ["gaussian_fit", "std68"]:
+    for method in ["std68", "gaussian_fit"]:
         print("-----------------------------------------------------------")
         print("Using peak width method:", method)
         # fig, ax = plt.subplots(2, 1, figsize=(8, 6))
@@ -337,6 +330,12 @@ for jet_part in [ "_higherRes", "_neutral", "_charged"]:
                 fig_histograms.savefig(
                     "../../idea_fullsim/fast_sim/{}/{}/bins_{}_{}.pdf".format(histograms_folder, os.environ["FOLDER_NAME"], process, method)
                 )
+            if method == "std68" and jet_part == "_neutral":
+                bin_to_histograms_storage_neutral[process] = bin_to_histograms
+                fig_histograms.tight_layout()
+                fig_histograms.savefig(
+                    "../../idea_fullsim/fast_sim/{}/{}/bins_NEUTRAL_{}_{}.pdf".format(histograms_folder, os.environ["FOLDER_NAME"], process, method)
+                )
             clr = PROCESS_COLORS.get(process, f"C{proc_idx}")
             if len(bin_mid_points) < 2:
                 print(f"Not enough points to fit for process {process} using method {method}. Skipping.")
@@ -345,7 +344,7 @@ for jet_part in [ "_higherRes", "_neutral", "_charged"]:
             print(f"Fitted parameters for {process} using {method}: a={popt[0]:.4f}, b={popt[1]:.4f}")
             if process not in process_popt_storage:
                 process_popt_storage[process] = {}
-            process_popt_storage[process][method] = (popt, pcov, xs, ys, bin_mid_points, sigmaEoverE)
+            process_popt_storage[process][method + jet_part] = (popt, pcov, xs, ys, bin_mid_points, sigmaEoverE)
             ax[0].plot(bin_mid_points, sigmaEoverE, "x", color=clr)
             ax[0].plot(xs, ys, LINE_STYLES[process], color=clr, label=HUMAN_READABLE_PROCESS_NAMES[process] + f" A={round(popt[0], 2)} B={round(popt[1], 2)}")
             ax[1].plot(bin_mid_points, resp, ".--", label=process, color=clr)

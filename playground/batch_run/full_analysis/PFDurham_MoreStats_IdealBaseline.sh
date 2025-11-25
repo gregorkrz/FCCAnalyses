@@ -10,8 +10,7 @@ export KEEP_ONLY_FULLY_MATCHED_EVENTS=1
 export MATCH_RECO_JETS=1
 
 
-#fccanalysis run --n-threads 16  histmaker_jetE_filter_GT.py
-#python3 simple_histograms.py
+fccanalysis run --n-threads 16  histmaker_jetE_filter_GT.py
+python3 simple_histograms.py
 python3 resolution_plots.py
-#fccanalysis plots plots_jetE_alljets_Compare_AK.py
-
+fccanalysis plots plots_jetE_alljets_Compare_AK.py

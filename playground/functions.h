@@ -628,10 +628,11 @@ Vec_rp fastjet_to_vec_rp_jet(JetClustering::FCCAnalysesJet jets, int first_k) {
     return out;
 }
 
-pair<Vec_rp, Vec_rp> fastjet_to_vec_rp_jet_split_based_on_charge(JetClustering::FCCAnalysesJet jets, Vec_rp in_particles, int first_k) {
-    // A slightly more complicated version of fastjet_to_vec_rp_jet, that outputs neutral and charged part of the jet
+tuple<Vec_rp, Vec_rp, Vec_rp> fastjet_to_vec_rp_jet_split_based_on_charge(JetClustering::FCCAnalysesJet jets, Vec_rp in_particles, int first_k) {
+    // A slightly more complicated version of fastjet_to_vec_rp_jet, that outputs NH part, CH part, and photon part of the jets
     Vec_rp rp_neutral_out;
     Vec_rp rp_charged_out;
+    Vec_rp rp_photon_out;
     vector<size_t> indices(jets.jets.size());
     std::iota(indices.begin(), indices.end(), 0);
     std::sort(indices.begin(), indices.end(),
@@ -646,6 +647,7 @@ pair<Vec_rp, Vec_rp> fastjet_to_vec_rp_jet_split_based_on_charge(JetClustering::
         auto & j = jets.jets[idx];
         edm4hep::ReconstructedParticleData rp_neutral;
         edm4hep::ReconstructedParticleData rp_charged;
+        edm4hep::ReconstructedParticleData rp_photon;
         //edm4hep::ReconstructedParticleData rp_all;
         vector<int> constituents = jets.constituents[idx];
         // Now go over constituents and sum up charged and neutral parts
@@ -653,10 +655,18 @@ pair<Vec_rp, Vec_rp> fastjet_to_vec_rp_jet_split_based_on_charge(JetClustering::
             if(c_idx >= 0 && c_idx < in_particles.size()) {
                 auto & p = in_particles[c_idx];
                 if(p.charge == 0) {
-                    rp_neutral.momentum.x += p.momentum.x;
-                    rp_neutral.momentum.y += p.momentum.y;
-                    rp_neutral.momentum.z += p.momentum.z;
-                    rp_neutral.energy     += p.energy;
+                    if (abs(p.PDG) == 22) {
+                        rp_photon.momentum.x += p.momentum.x;
+                        rp_photon.momentum.y += p.momentum.y;
+                        rp_photon.momentum.z += p.momentum.z;
+                        rp_photon.energy     += p.energy;
+                    }
+                    else {
+                        rp_neutral.momentum.x += p.momentum.x;
+                        rp_neutral.momentum.y += p.momentum.y;
+                        rp_neutral.momentum.z += p.momentum.z;
+                        rp_neutral.energy     += p.energy;
+                    }
                 } else {
                     rp_charged.momentum.x += p.momentum.x;
                     rp_charged.momentum.y += p.momentum.y;
@@ -668,9 +678,11 @@ pair<Vec_rp, Vec_rp> fastjet_to_vec_rp_jet_split_based_on_charge(JetClustering::
         }
         rp_neutral_out.push_back(rp_neutral);
         rp_charged_out.push_back(rp_charged);
+        rp_photon_out.push_back(rp_photon);
     }
-    return make_pair(rp_neutral_out, rp_charged_out);
+    return tuple(rp_neutral_out, rp_charged_out, rp_photon_out);
 }
+
 
 std::vector<float> sort_jet_energies(Vec_rp jets) { // return a vector<float> of the jet energies highest to lowest
     std::vector<float> energies;
