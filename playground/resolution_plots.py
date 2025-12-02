@@ -88,6 +88,7 @@ def double_crystal_ball(x, mu, sigma, alphaL, nL, alphaR, nR, norm):
 
 def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68", root_histogram_prefix="binned_E_reco_over_true_"):
     # Sigma methods: std68, RMS, interquantile_range
+    field_names = []
     f = ROOT.TFile.Open(os.path.join(args.folder, "{}.root".format(procname)))
     fig_hist, ax_hist = plt.subplots(3, 1, figsize=(8, 8.5))# stack two plots vertically
     eps = 0.001
@@ -167,6 +168,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
         return "vvbb" in procname or "vvqq" in procname or "vvgg" in procname
     for i in range(len(bins) - 1):
         hist_name = f"{root_histogram_prefix}{suffix}{neg_format(bins[i])}_{neg_format(bins[i+1])}"
+        field_names.append(hist_name)
         rf = 1
         #if bins[i] == 0 and bins[i+1] == 25 and is_twojet_proc(procname):
         #    rf = 2  # to reduce statistical fluctuations when stats are low
@@ -275,7 +277,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
     ax_hist[2].set_yscale("log")
     ax_hist[2].set_xlabel(r'$E_{reco} / E_{true}$')
     ax_hist[2].set_ylabel('Entries')
-    return bin_mid_points, sigmaEoverE, fig_hist, responses, bins_to_histograms, lo_hi_MPV
+    return bin_mid_points, sigmaEoverE, fig_hist, responses, bins_to_histograms, lo_hi_MPV, field_names
 
 bin_to_histograms_storage = {}
 bin_to_histograms_storage_neutral = {}
@@ -300,10 +302,10 @@ method_to_color = {
 
 jet_part_to_histogram_prefix = {
     "": "binned_E_reco_over_true_",
-    "_charged": "higher_res_binned_E_Charged_reco_over_true_",
-    "_neutral": "higher_res_binned_E_Neutral_reco_over_true_",
+    "_charged": "higher_res_binned_E_Charged_reco_over_true_FullGenJet_",
+    "_neutral": "higher_res_binned_E_Neutral_reco_over_true_FullGenJet_",
     "_higherRes": "higher_res_binned_E_reco_over_true_",
-    "_photons": "higher_res_binned_E_Photon_reco_over_true_"
+    "_photons": "higher_res_binned_E_Photon_reco_over_true_FullGenJet_"
 }
 
 for jet_part in ["_photons", "_neutral", "_charged", "_higherRes"]:
@@ -312,14 +314,14 @@ for jet_part in ["_photons", "_neutral", "_charged", "_higherRes"]:
                                                                          sharex=False)
     fig_resolution_per_process_Njets, ax_resolution_per_process_Njets = plt.subplots(2, 2, figsize=(9, 9), sharex=False)
     # Left column: resolution, right column: response. Comparison of gaussian_fit and std68
-    for method in ["std68", "gaussian_fit"]:
+    for method in ["std68"]:
         print("-----------------------------------------------------------")
         print("Using peak width method:", method)
         # fig, ax = plt.subplots(2, 1, figsize=(8, 6))
         # the same as above but make it (10, 6) and make the upper plot 2/3 and lower plot 1/3 of the height
         fig, ax = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
         for proc_idx, process in enumerate(sorted(list(processList.keys()))):
-            bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms, mpv_lo_hi = get_result_for_process(process, sigma_method=method, root_histogram_prefix=jet_part_to_histogram_prefix[jet_part])
+            bin_mid_points, sigmaEoverE, fig_histograms, resp, bin_to_histograms, mpv_lo_hi, field_names = get_result_for_process(process, sigma_method=method, root_histogram_prefix=jet_part_to_histogram_prefix[jet_part])
             if process not in method_low_high_mid_point_storage:
                 method_low_high_mid_point_storage[process] = {}
             if jet_part == "_higherRes":
@@ -344,7 +346,7 @@ for jet_part in ["_photons", "_neutral", "_charged", "_higherRes"]:
             print(f"Fitted parameters for {process} using {method}: a={popt[0]:.4f}, b={popt[1]:.4f}")
             if process not in process_popt_storage:
                 process_popt_storage[process] = {}
-            process_popt_storage[process][method + jet_part] = (popt, pcov, xs, ys, bin_mid_points, sigmaEoverE)
+            process_popt_storage[process][method + jet_part] = (popt, pcov, xs, ys, bin_mid_points, sigmaEoverE, mpv_lo_hi, field_names)
             ax[0].plot(bin_mid_points, sigmaEoverE, "x", color=clr)
             ax[0].plot(xs, ys, LINE_STYLES[process], color=clr, label=HUMAN_READABLE_PROCESS_NAMES[process] + f" A={round(popt[0], 2)} B={round(popt[1], 2)}")
             ax[1].plot(bin_mid_points, resp, ".--", label=process, color=clr)
@@ -440,7 +442,7 @@ for method in ["std68", "gaussian_fit"]:
     #fig, ax = plt.subplots(2, 1, figsize=(8, 6))
     fig, ax = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
     for process in sorted(list(processList.keys())):
-        bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _ = get_result_for_process(process, bins=bins_eta,
+        bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _, _ = get_result_for_process(process, bins=bins_eta,
                                                                                          suffix="eta_",
                                                                                          sigma_method=method)
         if method == "std68":
@@ -468,7 +470,7 @@ for method in ["std68", "gaussian_fit"]:
     #fig, ax = plt.subplots(2, 1, figsize=(8, 6))
     fig , ax  = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [2, 1]})
     for process in sorted(list(processList.keys())):
-        bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _ = get_result_for_process(process, bins=bins_costheta,
+        bin_mid_points, sigmaEoverE, fig_histograms, resp, _, _, _ = get_result_for_process(process, bins=bins_costheta,
                                                                                          suffix="costheta_",
                                                                                          sigma_method=method)
         if method == "std68":

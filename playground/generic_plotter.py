@@ -10,6 +10,12 @@ method_dict = {
     "CaloJetDurham_ISR_FullyMatched": "CaloJets"
 }
 
+process_for_detailed_bins_plots = [
+    "p8_ee_ZH_vvbb_ecm240",
+    "p8_ee_ZH_vvgg_ecm240",
+    "p8_ee_ZH_vvqq_ecm240"
+]
+
 histograms_folder = "Histograms_ECM240_20251114_6M"
 
 # Resolution plots, PF vs PF+Ideal matching
@@ -133,54 +139,52 @@ fig.savefig(fig_path)
 fig_mH.savefig(fig_mH_path)
 
 
-###########################################
-# Resolution plots, calo jets vs neutral part of PF jets
-fig, ax = plt.subplots(10, figsize=(4, 19))
-for method in ["PFDurham_ISR_FullyMatched", "PFDurham_ISR_FullyMatched_MatchRecoJets", "CaloJetDurham_ISR_FullyMatched"]:
-    method_color = {
-        "PFDurham_ISR_FullyMatched": "blue",
-        "CaloJetDurham_ISR_FullyMatched": "green",
-        "PFDurham_ISR_FullyMatched_MatchRecoJets": "orange"
-    }
-    method_linestyle = { # For the $m_H$ plots
-        "PFDurham_ISR_FullyMatched": "-",
-        "CaloJetDurham_ISR_FullyMatched": "--",
-        "PFDurham_ISR_FullyMatched_MatchRecoJets": ":"
-    }
-    method_text = {
-        "PFDurham_ISR_FullyMatched": "PF jets, neutral part",
-        "CaloJetDurham_ISR_FullyMatched": "Calo jets",
-        "PFDurham_ISR_FullyMatched_MatchRecoJets": "PF jets, neutral part + ideal matching"
-    }
-    f = pickle.load(open(f"../../idea_fullsim/fast_sim/{histograms_folder}/{method}/energy_fit_params_per_process.pkl", "rb"))
-    f_mH = pickle.load(open(f"../../idea_fullsim/fast_sim/{histograms_folder}/{method}/Higgs_mass_histograms_data.pkl", "rb"))
-    for i, process in enumerate(PROCESS_COLORS.keys()):
-        if process not in f:
-            continue
-        color = PROCESS_COLORS[process]
-        label = HUMAN_READABLE_PROCESS_NAMES[process]
-        linestyle = "--"
-        if method == "CaloJetDurham_ISR_FullyMatched":
-            if "std68_higherRes" in f[process]:
-                cp = f[process]["std68_higherRes"]
+for prefix in ["neutral", "charged", "photons"]:
+    ###########################################
+    # Resolution plots, calo jets vs neutral part of PF jets
+    fig, ax = plt.subplots(10, figsize=(4, 19))
+    for method in ["PFDurham_ISR_FullyMatched", "PFDurham_ISR_FullyMatched_MatchRecoJets", "CaloJetDurham_ISR_FullyMatched"]:
+        method_color = {
+            "PFDurham_ISR_FullyMatched": "blue",
+            "CaloJetDurham_ISR_FullyMatched": "green",
+            "PFDurham_ISR_FullyMatched_MatchRecoJets": "orange"
+        }
+        method_linestyle = { # For the $m_H$ plots
+            "PFDurham_ISR_FullyMatched": "-",
+            "CaloJetDurham_ISR_FullyMatched": "--",
+            "PFDurham_ISR_FullyMatched_MatchRecoJets": ":"
+        }
+        method_text = {
+            "PFDurham_ISR_FullyMatched": "PF jets, {} part".format(prefix),
+            "CaloJetDurham_ISR_FullyMatched": "Calo jets",
+            "PFDurham_ISR_FullyMatched_MatchRecoJets": "PF jets, {} part + ideal matching".format(prefix)
+        }
+        f = pickle.load(open(f"../../idea_fullsim/fast_sim/{histograms_folder}/{method}/energy_fit_params_per_process.pkl", "rb"))
+        f_mH = pickle.load(open(f"../../idea_fullsim/fast_sim/{histograms_folder}/{method}/Higgs_mass_histograms_data.pkl", "rb"))
+        for i, process in enumerate(PROCESS_COLORS.keys()):
+            if process not in f:
+                continue
+            color = PROCESS_COLORS[process]
+            label = HUMAN_READABLE_PROCESS_NAMES[process]
+            linestyle = "--"
+            if method == "CaloJetDurham_ISR_FullyMatched":
+                if "std68_higherRes" in f[process]:
+                    cp = f[process]["std68_higherRes"]
+                else:
+                    cp = f[process]["std68"]
             else:
-                cp = f[process]["std68"]
-        else:
-            cp = f[process]["std68_neutral"]
-        xs, ys = cp[2], cp[3]
-        x_pts, y_pts = cp[4], cp[5]
-        ax[i].plot(xs, ys, label=f"{method_text[method]} A={round(cp[0][0], 2)} B={round(cp[0][1], 2)}", color=method_color[method], linestyle=linestyle)
-        ax[i].plot(x_pts, y_pts, 'x', color=method_color[method], markersize=4)
-        ax[i].set_ylabel("$\sigma_E / E_{true}$")
-        ax[i].set_title(label + r" ($\frac{A}{\sqrt{E}}$ ⊕ $B$)")
-        Higgs_x, Higgs_y = f_mH[process]["x_vals_reco"], f_mH[process]["y_vals_reco"]
-
-for i in range(len(ax)):
-    ax[i].legend(fontsize=6.5)
-    ax[i].grid()
-
-fig.tight_layout()
-fig_path = f"../../idea_fullsim/fast_sim/{histograms_folder}/JER_comparison_Neutral_PF_vs_CaloJets.pdf"
-print("Saving figure to", fig_path)
-fig.savefig(fig_path)
-
+                cp = f[process]["std68_" + prefix]
+            xs, ys = cp[2], cp[3]
+            x_pts, y_pts = cp[4], cp[5]
+            ax[i].plot(xs, ys, label=f"{method_text[method]} A={round(cp[0][0], 2)} B={round(cp[0][1], 2)}", color=method_color[method], linestyle=linestyle)
+            ax[i].plot(x_pts, y_pts, 'x', color=method_color[method], markersize=4)
+            ax[i].set_ylabel("$\sigma_E / E_{true}$")
+            ax[i].set_title(label + r" ($\frac{A}{\sqrt{E}}$ ⊕ $B$)")
+            Higgs_x, Higgs_y = f_mH[process]["x_vals_reco"], f_mH[process]["y_vals_reco"]
+    for i in range(len(ax)):
+        ax[i].legend(fontsize=6.5)
+        ax[i].grid()
+    fig.tight_layout()
+    fig_path = f"../../idea_fullsim/fast_sim/{histograms_folder}/JER_comparison_{prefix}_PF_vs_CaloJets.pdf"
+    print("Saving figure to", fig_path)
+    fig.savefig(fig_path)

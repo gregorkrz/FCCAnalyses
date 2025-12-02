@@ -9,6 +9,7 @@
 from truth_matching import get_Higgs_mass_with_truth_matching
 from jet_helper import get_jet_vars, get_jet_vars_from_genjet_matching
 import os
+import pickle
 
 assert "INPUT_DIR" in os.environ # To make sure we are taking the right input dir and folder name
 assert "FOLDER_NAME" in os.environ
@@ -56,6 +57,14 @@ processList = {
     #'p8_ee_ZZ_mumubb_ecm240': {'fraction': 1, 'crossSection': 2 * 1.35899 * 0.034 * 0.152},
     #'p8_ee_ZH_Zmumu_ecm240': {'fraction': 1, 'crossSection': 0.201868 * 0.034},
 }
+
+to_delete = []
+for process in processList:
+    if not (os.path.exists(os.path.join(inputDir, process)) or os.path.exists(os.path.join(inputDir, process + ".root"))):
+        print("Warning: process {} does not have input files in {}, removing it from the process list.".format(process, inputDir))
+        to_delete.append(process)
+for process in to_delete:
+    del processList[process]
 
 nJets_processList = {
     "p8_ee_ZH_qqbb_ecm240": 4,
@@ -166,13 +175,17 @@ def build_graph(df, dataset):
     #results = []
     print("############## Doing dataset:", dataset, "##############")
     df = df.Define("MC_part_idx", "FCCAnalyses::ZHfunctions::get_MC_quark_index_for_Higgs(Particle, _Particle_daughters.index, false)")
+    df = df.Define("_RPEtaFilter", "FCCAnalyses::ZHfunctions::filter_reco_particles(ReconstructedParticles)")
+    df = df.Define("ReconstructedParticlesEtaFilter", "_RPEtaFilter.first")
+    df = df.Define("ReconstructedParticlesToEtaFilterRPIndex", "_RPEtaFilter.second")
     mcpart_idx_display = df.AsNumpy(["MC_part_idx"])["MC_part_idx"]
     print("MC part. idx", len(mcpart_idx_display), mcpart_idx_display[:5])
     print("Filtering df , current size: ", len(mcpart_idx_display))
     df = df.Filter("MC_part_idx.size() == {}".format(nJets_from_H_process_list[dataset]))
-    print("After filtering, len=", len(df.AsNumpy(["MC_part_idx"])["MC_part_idx"]))
+
     df = df.Define("weight", "1.0")
     weightsum = df.Sum("weight")
+    print("After filtering, len=", len(df.AsNumpy(["MC_part_idx"])["MC_part_idx"]))
     df = df.Define("calo_hit_energy", "CalorimeterHits.energy")
     hist_calo_hist_E = df.Histo1D(("h_calo_hit_energy", "Calo hit energy;E_calo_hit;Events", 100, 0, 3),
                                   "calo_hit_energy")
@@ -185,7 +198,7 @@ def build_graph(df, dataset):
     df = df.Define("stable_gen_particles", "_stable_gen_particles.first")
     df = df.Define("stable_gen_particles_idx", "_stable_gen_particles.second")
     df = df.Define("reco_mc_links",
-                   "FCCAnalyses::ZHfunctions::getRP2MC_index(_RecoMCLink_from.index, _RecoMCLink_to.index, ReconstructedParticles, Particle)")
+                   "FCCAnalyses::ZHfunctions::getRP2MC_index(_RecoMCLink_from.index, _RecoMCLink_to.index, ReconstructedParticlesEtaFilter, Particle, ReconstructedParticlesToEtaFilterRPIndex)")
     df = df.Define("mc2rp", "reco_mc_links.second")
     # For Durham:
     if os.environ.get("JET_ALGO", "durham").lower() == "durham":
@@ -195,15 +208,15 @@ def build_graph(df, dataset):
             print("No reco clustering - simply match gen jet constituents to corresponding reco particles")
             df = get_jet_vars_from_genjet_matching(df, name="FastJet_jets_reco", genjet_name="FastJet_jets")
         else:
-            df = get_jet_vars(df, "ReconstructedParticles", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
+            df = get_jet_vars(df, "ReconstructedParticlesEtaFilter", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
     elif os.environ.get("JET_ALGO", "durham").lower() == "ak":
         ak_radius = float(os.environ.get("AK_RADIUS", "0.4"))
         df = get_jet_vars(df, "stable_gen_particles", AK_radius=ak_radius, name="FastJet_jets")
-        df = get_jet_vars(df, "ReconstructedParticles", AK_radius=ak_radius, name="FastJet_jets_reco")
+        df = get_jet_vars(df, "ReconstructedParticlesEtaFilter", AK_radius=ak_radius, name="FastJet_jets_reco")
     elif os.environ.get("JET_ALGO", "durham").lower() == "eeak":
         ak_radius = float(os.environ.get("AK_RADIUS", "0.4"))
         df = get_jet_vars(df, "stable_gen_particles", AK_radius=ak_radius, name="FastJet_jets", is_ee_AK=True)
-        df = get_jet_vars(df, "ReconstructedParticles", AK_radius=ak_radius, name="FastJet_jets_reco", is_ee_AK=True)
+        df = get_jet_vars(df, "ReconstructedParticlesEtaFilter", AK_radius=ak_radius, name="FastJet_jets_reco", is_ee_AK=True)
     elif os.environ.get("JET_ALGO", "durham").lower() == "calojetdurham":
         df = get_jet_vars(df, "stable_gen_particles", N_durham=nJets_processList[dataset], name="FastJet_jets")
         df = df.Define("FastJet_jets_reco", "CaloJetDurham")
@@ -217,7 +230,7 @@ def build_graph(df, dataset):
     if not os.environ.get("JET_ALGO", "durham").lower() == "calojetdurham":
         df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(first_k))
         # store the neutral and charged components of the jets
-        df = df.Define("RecoJetFastJetNC", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet_split_based_on_charge(FastJet_jets_reco, ReconstructedParticles, {})".format(first_k))
+        df = df.Define("RecoJetFastJetNC", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet_split_based_on_charge(FastJet_jets_reco, ReconstructedParticlesEtaFilter, {})".format(first_k))
         df = df.Define("GenJetFastJetNC", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet_split_based_on_charge(FastJet_jets, stable_gen_particles, {})".format(first_k))
     else:
         # For Durham
@@ -242,10 +255,28 @@ def build_graph(df, dataset):
     hist_min_dist_jets_reco = df.Histo1D(("h_min_dist_jets_reco", "Min distance between reco jets;min #DeltaR(jet_i, jet_j);Events", 100, 0, 5), "min_distance_between_recojets")
     df = df.Define("matched_genjet_E_and_all_genjet_E", "FCCAnalyses::ZHfunctions::matched_genjet_E_and_all_genjet_E(fancy_matching, {})".format(GenJetVariable))
     df = df.Define("matched_genjet_energies", "std::get<0>(matched_genjet_E_and_all_genjet_E)")
+    # Now compute the invariant mass of all the stable_gen_particles and all the ReconstructedParticlesEtaFilter.
+    df = df.Define("inv_mass_all_gen_particles_BeforeFiltering", "FCCAnalyses::ZHfunctions::invariant_mass(stable_gen_particles);")
+    h_mH_all_stable_part_Before_Filter = df.Histo1D(
+        ("h_mH_all_stable_part_BeforeFiltering", "Invariant mass of all particles; Minv; Events", 250, 0, 250),
+        "inv_mass_all_gen_particles")
+    # Do the invariant mass of all reco particles
+    df = df.Define("inv_mass_all_reco_particles_BeforeFiltering",
+                   "FCCAnalyses::ZHfunctions::invariant_mass(ReconstructedParticlesEtaFilter);")
+    hist_m_all_reco_particles_Before_Filter = df.Histo1D(
+        ("inv_mass_all_reco_particles_BeforeFiltering", "Invariant mass of all reco particles; Minv; Events", 250, 0, 250),
+        "inv_mass_all_reco_particles")
+    outputs_before_filtering = [h_mH_all_stable_part_Before_Filter, hist_m_all_reco_particles_Before_Filter]
     if Fully_Matched_Only:
         # filter by matched_genjet_energies.size() == genjet_energies.size() && genjet_energies.size() == nJets_processList[dataset]
         print("Filtering! Number of matched jets should be equal to", nJets_processList[dataset])
         df = df.Filter("(matched_genjet_energies.size() == genjet_energies.size()) && (genjet_energies.size() == {})".format(nJets_processList[dataset]))
+    weightsum_after_filtering = df.Sum("weight").GetValue()
+    # Save to pickle: before and after filtering weightsum
+    out_file = os.path.join(outputDir, f"basic_stats_{dataset}.pkl")
+    with open(out_file, "wb") as f:  # Keep track of how many events were filtered out
+        pickle.dump({"before_filtering": weightsum.GetValue(), "after_filtering": weightsum_after_filtering}, f)
+    print("Weightsum before filtering:", weightsum)
     df = df.Define("all_genjet_energies", "std::get<1>(matched_genjet_E_and_all_genjet_E)")
     hist_genjet_all_energies = df.Histo1D(("h_genjet_all_energies", "E of all gen jets;E_gen;Events", 10, 0, 200), "all_genjet_energies")
     hist_genjet_matched_energies = df.Histo1D(("h_genjet_matched_energies", "E of matched gen jets;E_gen;Events", 10, 0, 200), "matched_genjet_energies")
@@ -426,7 +457,12 @@ def build_graph(df, dataset):
     print("ratio_jet_energies_matching_with_partons:", df.AsNumpy(["ratio_jet_energies_matching_with_partons"])["ratio_jet_energies_matching_with_partons"][:5])
     h_ratio_matching_with_partons = df.Histo1D(("h_ratio_matching_with_partons", "E_reco/E_parton;E_reco / E_parton;Events", 300, 0.5, 1.5), "ratio_jet_energies_matching_with_partons")
     df = df.Define("inv_mass_all_gen_particles", "FCCAnalyses::ZHfunctions::invariant_mass(stable_gen_particles);")
-    h_mH_all_stable_part = df.Histo1D(("h_mH_all_stable_part", "Invariant mass of all particles; Minv; Events", 100, 0, 250), "inv_mass_all_gen_particles")
+
+    h_mH_all_stable_part = df.Histo1D(("h_mH_all_stable_part", "Invariant mass of all particles; Minv; Events", 250, 0, 250), "inv_mass_all_gen_particles")
+    # do the invariant mass of all reco particles
+    df = df.Define("inv_mass_all_reco_particles", "FCCAnalyses::ZHfunctions::invariant_mass(ReconstructedParticlesEtaFilter);")
+    hist_m_all_reco_particles = df.Histo1D(("hist_calo_hist_E", "Invariant mass of all reco particles; Minv; Events", 250, 0, 250), "inv_mass_all_reco_particles")
+    # More mass histograms: for inv
     h_mH_reco = df.Histo1D(("h_mH_reco", "Higgs mass from reco jets;M_H (reco jets);Events", 500, 0, 250), "inv_mass_reco")
     h_mH_gen = df.Histo1D(("h_mH_gen", "Higgs mass from gen jets;M_H (gen jets);Events", 500, 0, 250), "inv_mass_gen")
     h_mH_reco_core = df.Histo1D(("h_mH_reco_core", "Higgs mass from reco jets;M_H (reco jets);Events", 300, 75, 150), "inv_mass_reco")
@@ -440,4 +476,5 @@ def build_graph(df, dataset):
     h_mH_reco_particles_matched = df.Histo1D(("h_mH_reco_particles_matched", "Higgs mass from reco particles matched;M_H (reco particles matched);Events", 500, 0, 250), "inv_mass_reco_particles_matched_from_higgs")
     h_mH_MC_part = df.Histo1D(("h_mH_MC_part", "Higgs mass from initial MC part.;M_H (MC part);Events", 500, 0, 250), "inv_mass_MC_part")
     results = results + [h_mH_stable_gt_particles, h_mH_reco_particles_matched, h_mH_MC_part]
-    return results + histograms + [h_eta, h_eta_gen, h_ratio_matching_with_partons], weightsum
+    # Define a constant that is the df length after filtering and also save that
+    return results + histograms + [h_eta, h_eta_gen, h_ratio_matching_with_partons, hist_m_all_reco_particles] + outputs_before_filtering, weightsum

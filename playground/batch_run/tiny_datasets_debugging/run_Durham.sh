@@ -6,6 +6,8 @@ export INPUT_DIR=/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/Tiny_ID
 export FOLDER_NAME=PFDurham_ISR
 export JET_ALGO=Durham
 export HISTOGRAMS_FOLDER_NAME=Histograms_20251112_Debug
+export KEEP_ONLY_FULLY_MATCHED_EVENTS=1
+
 
 fccanalysis run histmaker_jetE_filter_GT.py
 #python3 simple_histograms.py

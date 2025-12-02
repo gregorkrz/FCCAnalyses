@@ -6,7 +6,7 @@
 import os
 from event_displays import Vec_RP, Event
 from truth_matching import get_Higgs_mass_with_truth_matching
-from jet_helper import get_jet_vars
+from jet_helper import get_jet_vars, get_jet_vars_from_genjet_matching
 
 #inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 
@@ -36,13 +36,17 @@ if False:
     }
 
 if True:
-    # Check the small peak in jet-level Ereco/Etrue for 6-jet events that's messing with the reconstruction
+    # Investigate issues with
     PLOT_IDX = 1
     inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/Tiny_IDEA_20251105/"
-    outputDir = "../../idea_fullsim/fast_sim/Histograms_20251112_Debug/EventDisplays_Durham_" + str(PLOT_IDX)
+    outputDir = "../../idea_fullsim/fast_sim/Histograms_Debug_20251129/MatchRecoJets_EventDisplays_Durham_" + str(PLOT_IDX)
     processList = {
         "p8_ee_ZH_6jet_LF_ecm240": {'fraction': 1},
+        "p8_ee_ZH_vvqq_ecm240": {'fraction': 1},
+        "p8_ee_ZH_bbbb_ecm240": {'fraction': 1},
     }
+
+
 
 #gf = "GenJetDurhamN4"
 #rf = "JetDurhamN4"
@@ -150,6 +154,9 @@ def build_graph(df, dataset):
     print("Filtering df , current size: ", len(mcpart_idx_display))
     df = df.Filter("MC_part_idx.size() == {}".format(nJets_from_H_process_list[dataset]))
     df = df.Define("MC_quark_index", "FCCAnalyses::ZHfunctions::get_MC_quark_index_for_Higgs(Particle, _Particle_daughters.index, false);")
+    df = df.Define("reco_mc_links",
+                   "FCCAnalyses::ZHfunctions::getRP2MC_index(_RecoMCLink_from.index, _RecoMCLink_to.index, ReconstructedParticles, Particle)")
+    df = df.Define("mc2rp", "reco_mc_links.second")
     df = df.Define("GT_jets", "FCCAnalyses::ZHfunctions::get_GT_jets_from_initial_particles(Particle, MC_quark_index);")
     df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(JetDurhamN4)")
     df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetDurhamN4)")
@@ -181,11 +188,17 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_evt", "FCCAnalyses::Utils::serialize_event(ReconstructedParticles);")
     df = df.Define("_serialized_calo_jets", "FCCAnalyses::Utils::serialize_event(CaloJetDurham);")
     df = df.Define("stable_gen_part_neutrinoFilter", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true).first")
+    df = df.Define("stable_gen_particles_idx", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true).second")
     # Durham jets
-
     df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", N_durham=nJets_processList[dataset], name="FastJet_jets")
-    df = get_jet_vars(df, "ReconstructedParticles", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
-
+    if os.environ.get("MATCH_RECO_JETS", "0") == "1":
+        # If set to 1, it will use reco jets that are made out of the particles matched to the gen jet constituents
+        print("No reco clustering - simply match gen jet constituents to corresponding reco particles")
+        df = get_jet_vars_from_genjet_matching(df, name="FastJet_jets_reco", genjet_name="FastJet_jets")
+    else:
+        df = get_jet_vars(df, "ReconstructedParticles", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
+    df = df.Define("_reco_particle_to_jet_mapping", "FCCAnalyses::ZHfunctions::get_reco_particle_jet_mapping(ReconstructedParticles.size(), FastJet_jets_reco);")
+    df = df.Define("_stable_gen_particle_to_jet_mapping", "FCCAnalyses::ZHfunctions::get_reco_particle_jet_mapping(stable_gen_part_neutrinoFilter.size(), FastJet_jets);")
     # AK6 jets
     #df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", name="FastJet_jets", is_ee_AK=True, AK_radius=0.6)
     #df = get_jet_vars(df, "ReconstructedParticles", name="FastJet_jets_reco", is_ee_AK=True, AK_radius=0.6)
@@ -238,7 +251,7 @@ def build_graph(df, dataset):
                           "_serialized_evt_gen_PDG", "_calohits_eta", "_calohits_phi", "_calohits_pt", "_serialized_jets_m",
                           "MC_quark_index", "_serialized_calojets_eta", "_serialized_calojets_phi",
                           "_serialized_calojets_pt", "fancy_matching", "HardP_to_GenJet_mapping", "HardP_to_RecoJet_mapping",
-                          "_serialized_evt_PDG"])
+                          "_serialized_evt_PDG", "_reco_particle_to_jet_mapping", "_stable_gen_particle_to_jet_mapping"])
     tonumpy = {key: list([list(x) for x in tonumpy[key]]) for key in tonumpy}
     #inv_mass_gen_all = list(df.AsNumpy(["inv_mass_gen_all"])["inv_mass_gen_all"])
     inv_mass_all_gen_p = list(df.AsNumpy(["inv_mass_all_gen_particles"])["inv_mass_all_gen_particles"])
@@ -282,9 +295,11 @@ def build_graph(df, dataset):
             #event_idx = # I want an event idx that is unique per dataset, even with multiple input root files. How do I do this?
             #print("Plotting event idx ", global_event_idx.get(dataset, 0), " from dataset ", dataset)
             eta, phi, pt = tonumpy["_serialized_evt_eta"][event_idx], tonumpy["_serialized_evt_phi"][event_idx], tonumpy["_serialized_evt_pt"][event_idx]
-            vec_rp = Vec_RP(eta=eta, phi=phi, pt=pt, pdg=tonumpy["_serialized_evt_PDG"][event_idx])
+            particle_to_jet = tonumpy["_reco_particle_to_jet_mapping"][event_idx]
+            stable_gen_particle_to_jet = tonumpy["_stable_gen_particle_to_jet_mapping"][event_idx]
+            vec_rp = Vec_RP(eta=eta, phi=phi, pt=pt, pdg=tonumpy["_serialized_evt_PDG"][event_idx], jets=particle_to_jet)
             etamc, phimc, ptmc = tonumpy["_serialized_evt_gen_eta"][event_idx], tonumpy["_serialized_evt_gen_phi"][event_idx], tonumpy["_serialized_evt_gen_pt"][event_idx]
-            vec_mc = Vec_RP(eta=etamc, phi=phimc, pt=ptmc, pdg=tonumpy["_serialized_evt_gen_PDG"][event_idx])#, txt=[str(pdg) for pdg in tonumpy["_serialized_evt_gen_PDG"][event_idx]])
+            vec_mc = Vec_RP(eta=etamc, phi=phimc, pt=ptmc, pdg=tonumpy["_serialized_evt_gen_PDG"][event_idx], jets=stable_gen_particle_to_jet) #, txt=[str(pdg) for pdg in tonumpy["_serialized_evt_gen_PDG"][event_idx]])
             jets_eta, jets_phi, jets_pt = tonumpy["_serialized_jets_eta"][event_idx], tonumpy["_serialized_jets_phi"][event_idx], tonumpy["_serialized_jets_pt"][event_idx]
             jets_m = tonumpy["_serialized_jets_m"][event_idx]
             #jets_text = l[event_idx]

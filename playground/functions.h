@@ -80,6 +80,22 @@ vector<int> get_MC_quark_index(Vec_mc mc) { // Get the initial quarks from the M
   return res;
 }*/
 
+vector<int> get_reco_particle_jet_mapping(int num_particles, JetClustering::FCCAnalysesJet jets) {
+    // Returns a list per particle in which -1 is no jet, 0 is jet 0, 1 is jet 1, etc.
+    vector<int> result;
+    result.resize(num_particles, -1); // Initialize to -1
+    for (size_t j = 0; j < jets.jets.size(); ++j) {
+        auto & jet = jets.jets[j];
+        auto & constituents = jets.constituents[j];
+        for (auto & c_idx : constituents) {
+            if(c_idx >= 0 && c_idx < num_particles) {
+                result[c_idx] = j;
+            }
+        }
+    }
+    return result;
+}
+
 JetClustering::FCCAnalysesJet match_genjet_constituents_to_reco_particles (Vec_rp reco_particles, JetClustering::FCCAnalysesJet gen_jets, vector<int> mc2rp, vector<int> stable_gen_particle_idx) {
     /*
         This function matches the constituents of the gen jets to the reco particles using the mc2rp mapping.
@@ -139,18 +155,21 @@ Vec_rp get_particles_from_mc2rp(vector<int> mc_part_idx, vector<int> mc2rp, Vec_
     return convert(result);
 }
 
-pair<vector<int>,vector<int>> getRP2MC_index(ROOT::VecOps::RVec<int> recind, ROOT::VecOps::RVec<int> mcind, Vec_rp reco, Vec_mc mc) {
+pair<vector<int>,vector<int>> getRP2MC_index(ROOT::VecOps::RVec<int> recind, ROOT::VecOps::RVec<int> mcind, Vec_rp reco, Vec_mc mc, vector<int> reco_particle_mapping) {
   vector<int> result;
   vector<int> result_MC2RP;
   result.resize(reco.size(),-1.);
   result_MC2RP.resize(mc.size(),-1.);
   for (size_t i=0; i<recind.size();i++) {
     // if recind.at(i) is out of bounds, log a warning!
-    if (recind.at(i) < 0 || recind.at(i) >= reco.size()) {
+    if (recind.at(i) < 0 || recind.at(i) >= reco_particle_mapping.size()) {
       //rdfVerbose << "getRP2MC_index: recind.at(" << i << ") = " << recind.at(i) << " is out of bounds [0," << reco.size()-1 << "]" << endl;
       continue;
     }
-    result[recind.at(i)] = mcind.at(i);
+    if (reco_particle_mapping[recind.at(i)] == -1) {
+        continue;
+    }
+    result[reco_particle_mapping[recind.at(i)]] = mcind.at(i);
   }
   for (size_t i=0; i<reco.size();i++) {
    if (result[i] <= -1 || result[i] >= mc.size()) {
@@ -785,6 +804,25 @@ vector<float> get_reco_muon_energies(Vec_rp reco_particles) {
     return result;
 }
 
+pair<Vec_rp, vector<int>> filter_reco_particles(Vec_rp reco_particles) {
+    // Return a Vec_mc of only the stable particles (generatorStatus == 1), as well as their original indices in mc_particles
+    Vec_rp result;
+    vector<int> result_mapping; // mapping from original reco_particle to new particles (set to -1 if filtered out)
+    // init to -1s
+    result_mapping.resize(reco_particles.size(), -1);
+    for(auto & p : reco_particles) {
+        // Compute eta and remove particles with |eta| > 2.56
+        TLorentzVector p_lv;
+        p_lv.SetXYZM(p.momentum.x, p.momentum.y, p.momentum.z, p.mass);
+        float eta = p_lv.Eta();
+        if (abs(eta) > 2.56) {
+            continue; // Skip particles with |eta| > 2.56 - for now also reco particles!
+        }
+        result.push_back(p);
+        result_mapping[&p - &reco_particles[0]] = result.size() - 1; // index of p in reco_particles
+    }
+    return make_pair(result, result_mapping);
+}
 
 pair<Vec_rp, vector<int>> stable_particles(Vec_mc mc_particles, bool neutrino_filter = false) {
     // Return a Vec_mc of only the stable particles (generatorStatus == 1), as well as their original indices in mc_particles

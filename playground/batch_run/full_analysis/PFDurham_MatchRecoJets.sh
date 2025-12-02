@@ -2,10 +2,12 @@ source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
 set -e
 
 export INPUT_DIR=/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/IDEA_20251105
-export FOLDER_NAME=CaloJetDurham_ISR
-export JET_ALGO=CaloJetDurham
-export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240_20251105_MatchR03
-export JET_MATCHING_RADIUS=0.3
+export FOLDER_NAME=PFDurham_ISR
+export JET_ALGO=Durham
+export HISTOGRAMS_FOLDER_NAME=Histograms_ECM240_20251105_MatchR10_FullyMatched_MatchRecoJets
+export JET_MATCHING_RADIUS=1.0
+export MATCH_RECO_JETS=1
+export KEEP_ONLY_FULLY_MATCHED_EVENTS=1
 
 fccanalysis run --n-threads 16  histmaker_jetE_filter_GT.py
 python3 simple_histograms.py

@@ -32,5 +32,5 @@ def get_jet_vars_from_genjet_matching(df, name="FastJet_jets", genjet_name="GenJ
     '''
         vec_rp_name: name of the vector of ReconstructedParticles in the dataframe
     '''
-    df = df.Define(name, "FCCAnalyses::ZHfunctions::match_genjet_constituents_to_reco_particles(ReconstructedParticles, {}, mc2rp, stable_gen_particles_idx)".format(genjet_name))
+    df = df.Define(name, "FCCAnalyses::ZHfunctions::match_genjet_constituents_to_reco_particles(ReconstructedParticlesEtaFilter, {}, mc2rp, stable_gen_particles_idx)".format(genjet_name))
     return df
