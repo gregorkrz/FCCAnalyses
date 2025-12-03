@@ -41,6 +41,15 @@ Vec_rp convert(vector<rp> in) {
         rp.momentum.z = p.momentum[2];
         rp.energy = p.energy;
         rp.mass = p.mass;
+        // assert that the energy and mass are consistent
+        float energy_from_mass = std::sqrt(p.momentum[0] * p.momentum[0] +
+                                     p.momentum[1] * p.momentum[1] +
+                                     p.momentum[2] * p.momentum[2] +
+                                     p.mass * p.mass);
+        if (std::abs(energy_from_mass - p.energy) > 0.001) {
+            rdfWarning << "Inconsistent energy and mass for particle: computed energy " << energy_from_mass << " vs stored energy " << p.energy << endl;
+            exit(1);
+        }
         rp.charge = p.charge;
         rp.PDG = p.PDG;
         out.push_back(rp);
@@ -117,7 +126,13 @@ JetClustering::FCCAnalysesJet match_genjet_constituents_to_reco_particles (Vec_r
                 if(rp_idx >= 0 && rp_idx < reco_particles.size()) {
                     reco_constituents.push_back(rp_idx);
                     auto & p = reco_particles[rp_idx];
-                    fastjet::PseudoJet pj(p.momentum.x, p.momentum.y, p.momentum.z, p.energy);
+                    float mass = p.mass;
+                    // Compute the energy from mass
+                    float energy = std::sqrt(p.momentum.x * p.momentum.x +
+                                             p.momentum.y * p.momentum.y +
+                                             p.momentum.z * p.momentum.z +
+                                             mass * mass);
+                    fastjet::PseudoJet pj(p.momentum.x, p.momentum.y, p.momentum.z, energy);
                     reco_jet += pj;
                 }
             }
@@ -146,6 +161,10 @@ Vec_rp get_particles_from_mc2rp(vector<int> mc_part_idx, vector<int> mc2rp, Vec_
                 const float e  = reco_particles[rp_idx].energy;
                 const float m2 = e*e - (px*px + py*py + pz*pz);
                 temp.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
+                if (abs(temp.mass - rp_data.mass) > 0.001) {
+                    rdfWarning << "Inconsistent mass for particle: computed mass " << temp.mass << " vs stored mass " << rp_data.mass << endl;
+                    exit(1);
+                }
                 temp.energy = e;
                 temp.charge = reco_particles[rp_idx].charge;
                 result.push_back(temp);
@@ -377,7 +396,7 @@ vector<float> get_jet_distances(Vec_rp jets) {
             TLorentzVector k_lv;
             k_lv.SetXYZM(k.momentum.x, k.momentum.y, k.momentum.z, k.mass);
             float dR = j_lv.DeltaR(k_lv);
-            if (dR > 0.0001) {
+            if (dR > 0.001) {
                 // Make sure not to take the i-i pairs
                 result.push_back(dR);
             }
@@ -529,9 +548,9 @@ Vec_rp vec_mc_to_rp(Vec_mc vec_mc) {
         temp.momentum[1] = p.momentum.y;
         temp.momentum[2] = p.momentum.z;
         const float e = std::sqrt(p.momentum.x * p.momentum.x +
-                                     p.momentum.y * p.momentum.y +
-                                     p.momentum.z * p.momentum.z +
-                                     p.mass * p.mass);
+                                  p.momentum.y * p.momentum.y +
+                                  p.momentum.z * p.momentum.z +
+                                  p.mass * p.mass);
         const float px = temp.momentum[0];
         const float py = temp.momentum[1];
         const float pz = temp.momentum[2];
@@ -581,6 +600,8 @@ Vec_rp get_jets_from_recojetlabels(vector<int> RecoJetLabels, Vec_rp RecoParticl
     const float m2 = e*e - (px*px + py*py + pz*pz);
     j.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
   }
+  // Sanity check that the mass is consistent with the energy
+
   return convert(result);
 }
 
@@ -695,6 +716,18 @@ tuple<Vec_rp, Vec_rp, Vec_rp> fastjet_to_vec_rp_jet_split_based_on_charge(JetClu
                 }
             }
         }
+        rp_neutral.mass = std::sqrt(std::max(0.f, rp_neutral.energy * rp_neutral.energy -
+                                              (rp_neutral.momentum.x * rp_neutral.momentum.x +
+                                               rp_neutral.momentum.y * rp_neutral.momentum.y +
+                                               rp_neutral.momentum.z * rp_neutral.momentum.z)));
+        rp_charged.mass = std::sqrt(std::max(0.f, rp_charged.energy * rp_charged.energy -)
+                                              (rp_charged.momentum.x * rp_charged.momentum.x +
+                                               rp_charged.momentum.y * rp_charged.momentum.y +
+                                               rp_charged.momentum.z * rp_charged.momentum.z)));
+        rp_photon.mass = std::sqrt(std::max(0.f, rp_photon.energy * rp_photon.energy -
+                                              (rp_photon.momentum.x * rp_photon.momentum.x +
+                                               rp_photon.momentum.y * rp_photon.momentum.y +
+                                               rp_photon.momentum.z * rp_photon.momentum.z)));
         rp_neutral_out.push_back(rp_neutral);
         rp_charged_out.push_back(rp_charged);
         rp_photon_out.push_back(rp_photon);
@@ -817,6 +850,18 @@ pair<Vec_rp, vector<int>> filter_reco_particles(Vec_rp reco_particles) {
         float eta = p_lv.Eta();
         if (abs(eta) > 2.56) {
             continue; // Skip particles with |eta| > 2.56 - for now also reco particles!
+        }
+        float energy_from_mass = std::sqrt(p.momentum.x * p.momentum.x +
+                                     p.momentum.y * p.momentum.y +
+                                     p.momentum.z * p.momentum.z +
+                                     p.mass * p.mass);
+
+        // force set the energy to the computed value from mass and momentum
+        p.energy = energy_from_mass;
+        if (abs(energy_from_mass - p.energy) > 0.001) {
+            // raise an error
+            rdfVerbose << "Warning: Reco particle energy does not match mass and momentum! energy_from_mass: " << energy_from_mass << " p.energy: " << p.energy << "mass:" << p.mass << endl;
+            exit(1);
         }
         result.push_back(p);
         result_mapping[&p - &reco_particles[0]] = result.size() - 1; // index of p in reco_particles
