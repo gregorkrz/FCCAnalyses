@@ -8,7 +8,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
-
 @dataclass
 class Vec_RP:
     eta: list[float]
@@ -17,6 +16,7 @@ class Vec_RP:
     txt: Optional[list] = None
     pdg: list[int] = None
     jets: list[int] = None
+    m: list[float] = None
 
 class Event:
     def __init__(self, vec_rp: Vec_RP, vec_mc: Vec_RP = None, additional_collections={}, special_symbols={}, additional_text_dict={}):
@@ -172,11 +172,15 @@ class Event:
             has_extra = extra_text is not None and len(extra_text) == len(vec.eta)
 
             for i, (eta, phi, pt) in enumerate(zip(vec.eta, vec.phi, vec.pt)):
+                mass = "none"
+                if getattr(vec, "mass", None) is not None and len(vec.m) == len(vec.eta):
+                    mass = f"{vec.m[i]:.3f}"
                 parts = [
                     f"Collection: {label}",
                     f"η = {eta:.3f}",
                     f"φ = {phi:.3f}",
                     f"pT = {pt:.3f}",
+                    f"m = {mass}"
                 ]
                 if has_pdg:
                     parts.append(f"PDG ID = {vec.pdg[i]}")

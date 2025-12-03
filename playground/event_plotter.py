@@ -1,8 +1,10 @@
 # fccanalysis run event_plotter.py
+
 # source /cvmfs/fcc.cern.ch/sw/latest/setup.sh
 # source /cvmfs/sw.hsf.org/key4hep/setup.sh
 # source  /cvmfs/sw-nightlies.hsf.org/key4hep/setup.sh
 
+import pickle
 import os
 from event_displays import Vec_RP, Event
 from truth_matching import get_Higgs_mass_with_truth_matching
@@ -36,21 +38,19 @@ if False:
     }
 
 if True:
-    # Investigate issues with
+    # Investigate issues with the differences between the 'ideal' jet matching and the actual reco clustering
     PLOT_IDX = 1
     inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/Tiny_IDEA_20251105/"
-    outputDir = "../../idea_fullsim/fast_sim/Histograms_Debug_20251129/MatchRecoJets_EventDisplays_Durham_" + str(PLOT_IDX)
+    os.environ["MATCH_RECO_JETS"] = "1"
+    outputDir = "../../idea_fullsim/fast_sim/Hist19_Fix0112/MatchRecoJets_EventDisplays_Durham_" + str(PLOT_IDX)
     processList = {
-        "p8_ee_ZH_6jet_LF_ecm240": {'fraction': 1},
+        #"p8_ee_ZH_6jet_LF_ecm240": {'fraction': 1},
         "p8_ee_ZH_vvqq_ecm240": {'fraction': 1},
-        "p8_ee_ZH_bbbb_ecm240": {'fraction': 1},
+        #"p8_ee_ZH_bbbb_ecm240": {'fraction': 1},
     }
-
-
 
 #gf = "GenJetDurhamN4"
 #rf = "JetDurhamN4"
-
 gf = "GenJetFastJet"
 rf = "RecoJetFastJet"
 
@@ -111,7 +111,9 @@ includePaths = ["functions.h", "utils.h"]
 
 
 def plot_filter(E_reco_over_true, n_unmatched, inv_mass_Higgs, E_genjet, idx=1):
-    print("e genjet", E_genjet)
+    if idx == 1:
+        return True
+    print("E genjet", E_genjet)
     if idx == 6:
         return True
     if idx == 5:
@@ -135,7 +137,7 @@ def plot_filter(E_reco_over_true, n_unmatched, inv_mass_Higgs, E_genjet, idx=1):
         for i, E in enumerate(E_reco_over_true):
             if (E > 0.73) and (E < 0.77) and (E_genjet[i] > 75.0):
                 return True
-    elif idx== 7:
+    elif idx == 7:
         if (inv_mass_Higgs > 90.0) and (inv_mass_Higgs < 95.0):
             return True
         else:
@@ -150,42 +152,19 @@ def build_graph(df, dataset):
     df = df.Define("MC_part_idx",
                    "FCCAnalyses::ZHfunctions::get_MC_quark_index_for_Higgs(Particle, _Particle_daughters.index, false)")
     mcpart_idx_display = df.AsNumpy(["MC_part_idx"])["MC_part_idx"]
+    df = df.Define("_RPEtaFilter", "FCCAnalyses::ZHfunctions::filter_reco_particles(ReconstructedParticles)")
+    df = df.Define("ReconstructedParticlesEtaFilter", "_RPEtaFilter.first")
+    df = df.Define("ReconstructedParticlesToEtaFilterRPIndex", "_RPEtaFilter.second")
     print("MC part. idx", len(mcpart_idx_display), mcpart_idx_display[:5])
     print("Filtering df , current size: ", len(mcpart_idx_display))
     df = df.Filter("MC_part_idx.size() == {}".format(nJets_from_H_process_list[dataset]))
     df = df.Define("MC_quark_index", "FCCAnalyses::ZHfunctions::get_MC_quark_index_for_Higgs(Particle, _Particle_daughters.index, false);")
     df = df.Define("reco_mc_links",
-                   "FCCAnalyses::ZHfunctions::getRP2MC_index(_RecoMCLink_from.index, _RecoMCLink_to.index, ReconstructedParticles, Particle)")
+                   "FCCAnalyses::ZHfunctions::getRP2MC_index(_RecoMCLink_from.index, _RecoMCLink_to.index, ReconstructedParticlesEtaFilter, Particle, ReconstructedParticlesToEtaFilterRPIndex)")
     df = df.Define("mc2rp", "reco_mc_links.second")
     df = df.Define("GT_jets", "FCCAnalyses::ZHfunctions::get_GT_jets_from_initial_particles(Particle, MC_quark_index);")
-    df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(JetDurhamN4)")
-    df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies(GenJetDurhamN4)")
-    df = df.Define("ratio_jet_energies", "FCCAnalyses::ZHfunctions::elementwise_divide(jet_energies, genjet_energies)")
-    df = df.Define("fancy_matching",
-                   "FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy(JetDurhamN4, GenJetDurhamN4, 0.3)")
-    df = df.Define("distance_between_genjets", "FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4)")
-    df = df.Define("distance_between_recojets", "FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4)")
-    df = df.Define("min_distance_between_genjets",
-                   "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances(GenJetDurhamN4))")
-    df = df.Define("min_distance_between_recojets",
-                   "FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances(JetDurhamN4))")
-    df = df.Define("matched_genjet_E_and_all_genjet_E",
-                   "FCCAnalyses::ZHfunctions::matched_genjet_E_and_all_genjet_E(fancy_matching, GenJetDurhamN4)")
-    df = df.Define("matched_genjet_energies", "std::get<0>(matched_genjet_E_and_all_genjet_E)")
-    df = df.Define("all_genjet_energies", "std::get<1>(matched_genjet_E_and_all_genjet_E)")
-    df = df.Define("matching_processing",
-                       "FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, JetDurhamN4, GenJetDurhamN4)")
-    df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
-    df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
-    df = df.Define("num_unmatched_reco_jets", "E_of_unmatched_reco_jets.size()")
-    df = df.Define("E_of_matched_gen_jets", "std::get<2>(matching_processing)")
-    l = df.AsNumpy(["ratio_jet_energies_fancy"])["ratio_jet_energies_fancy"]
-    E_matched_jets = df.AsNumpy(["E_of_matched_gen_jets"])["E_of_matched_gen_jets"]
-    n_unmatched = df.AsNumpy(["num_unmatched_reco_jets"])["num_unmatched_reco_jets"]
-    l = list([list(item) for item in l])
-    n_unmatched = list(n_unmatched)
-    print("Number of unmatched reco jets per event: ", n_unmatched)
-    df = df.Define("_serialized_evt", "FCCAnalyses::Utils::serialize_event(ReconstructedParticles);")
+
+    df = df.Define("_serialized_evt", "FCCAnalyses::Utils::serialize_event(ReconstructedParticlesEtaFilter);")
     df = df.Define("_serialized_calo_jets", "FCCAnalyses::Utils::serialize_event(CaloJetDurham);")
     df = df.Define("stable_gen_part_neutrinoFilter", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true).first")
     df = df.Define("stable_gen_particles_idx", "FCCAnalyses::ZHfunctions::stable_particles(Particle, true).second")
@@ -196,14 +175,72 @@ def build_graph(df, dataset):
         print("No reco clustering - simply match gen jet constituents to corresponding reco particles")
         df = get_jet_vars_from_genjet_matching(df, name="FastJet_jets_reco", genjet_name="FastJet_jets")
     else:
-        df = get_jet_vars(df, "ReconstructedParticles", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
-    df = df.Define("_reco_particle_to_jet_mapping", "FCCAnalyses::ZHfunctions::get_reco_particle_jet_mapping(ReconstructedParticles.size(), FastJet_jets_reco);")
+        df = get_jet_vars(df, "ReconstructedParticlesEtaFilter", N_durham=nJets_processList[dataset], name="FastJet_jets_reco")
+        df = get_jet_vars_from_genjet_matching(df, name="FastJet_jets_reco_IdealMatching", genjet_name="FastJet_jets")
+        df = df.Define("_reco_particle_to_jet_mapping_idealMatching",
+                       "FCCAnalyses::ZHfunctions::get_reco_particle_jet_mapping(ReconstructedParticlesEtaFilter.size(), FastJet_jets_reco_IdealMatching);")
+    df = df.Define("_reco_particle_to_jet_mapping", "FCCAnalyses::ZHfunctions::get_reco_particle_jet_mapping(ReconstructedParticlesEtaFilter.size(), FastJet_jets_reco);")
+    if os.environ.get("MATCH_RECO_JETS", "0") != "1":
+        # get both _reco_particle_to_jet_mapping and _reco_particle_to_jet_mapping_idealMatching as list
+        reco_to_jet = df.AsNumpy(["_reco_particle_to_jet_mapping"])["_reco_particle_to_jet_mapping"]
+        reco_to_jet_ideal = df.AsNumpy(["_reco_particle_to_jet_mapping_idealMatching"])["_reco_particle_to_jet_mapping_idealMatching"]
+        reco_to_jet = list([list(item) for item in reco_to_jet])
+        reco_to_jet_ideal = list([list(item) for item in reco_to_jet_ideal])
+        print("Reco particle to jet:", reco_to_jet[:4])
+        print("Reco particle to jet ideal:", reco_to_jet_ideal[:4])
+
+        pickle.dump(
+            {"reco2jet": reco_to_jet, "reco2jet_ideal": reco_to_jet_ideal},
+                open(os.path.join(outputDir, "reco_particle_to_jet_mapping_{}.pkl".format(dataset)), "wb")
+        )
+    df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets, {})".format(
+        nJets_processList[dataset]))
+    df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(
+        nJets_processList[dataset]))
+    df = df.Define("jet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(rf))
+    df = df.Define("genjet_energies", "FCCAnalyses::ZHfunctions::sort_jet_energies({})".format(gf))
+    df = df.Define("fancy_matching",
+                   f"FCCAnalyses::ZHfunctions::get_reco_truth_jet_mapping_greedy({rf}, {gf}, 1.0)")
+    df = df.Define("distance_between_genjets", f"FCCAnalyses::ZHfunctions::get_jet_distances({gf})")
+    df = df.Define("distance_between_recojets", f"FCCAnalyses::ZHfunctions::get_jet_distances({rf})")
+    df = df.Define("min_distance_between_genjets",
+                   f"FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances({gf}))")
+    df = df.Define("min_distance_between_recojets",
+                   f"FCCAnalyses::ZHfunctions::min(FCCAnalyses::ZHfunctions::get_jet_distances({rf}))")
+    df = df.Define("matched_genjet_E_and_all_genjet_E",
+                   f"FCCAnalyses::ZHfunctions::matched_genjet_E_and_all_genjet_E(fancy_matching, {gf})")
+    df = df.Define("matched_genjet_energies", "std::get<0>(matched_genjet_E_and_all_genjet_E)")
+    df = df.Define("matching_filter", "(matched_genjet_energies.size() == genjet_energies.size()) && (genjet_energies.size() == {})".format(nJets_processList[dataset]))
+    df = df.Define("all_genjet_energies", "std::get<1>(matched_genjet_E_and_all_genjet_E)")
+    # fancy matching to numpy print first two events
+    matching_idx = df.AsNumpy(["fancy_matching"])["fancy_matching"]
+    print("Matching event 0: ", list(matching_idx[0]))
+    df = df.Define("matching_processing",
+                   f"FCCAnalyses::ZHfunctions::get_energy_ratios_for_matched_jets(fancy_matching, {rf}, {gf})")
+    df = df.Define("ratio_jet_energies_fancy", "std::get<0>(matching_processing)")
+    df = df.Define("E_of_unmatched_reco_jets", "std::get<1>(matching_processing)")
+    df = df.Define("num_unmatched_reco_jets", "E_of_unmatched_reco_jets.size()")
+    df = df.Define("E_of_matched_gen_jets", "std::get<2>(matching_processing)")
+    l = df.AsNumpy(["ratio_jet_energies_fancy"])["ratio_jet_energies_fancy"]
+    print("Energy ratios for event 0:", l[0])
+
+    E_matched_jets = df.AsNumpy(["E_of_matched_gen_jets"])["E_of_matched_gen_jets"]
+    n_unmatched = df.AsNumpy(["num_unmatched_reco_jets"])["num_unmatched_reco_jets"]
+    l = list([list(item) for item in l])
+    # Save this to pickle
+    E_matched_jets = list([list(item) for item in E_matched_jets])
+    matching_filter = df.AsNumpy(["matching_filter"])["matching_filter"]
+    matching_filter = list(matching_filter)
+    pickle.dump(E_matched_jets, open(os.path.join(outputDir, "E_matched_jets_{}.pkl".format(dataset)), "wb"))
+    pickle.dump(l, open(os.path.join(outputDir, "reco_over_gen_jet_energy_ratios_{}.pkl".format(dataset)), "wb"))
+    pickle.dump(matching_filter, open(os.path.join(outputDir, "matching_filter_{}.pkl".format(dataset)), "wb"))
+    n_unmatched = list(n_unmatched)
+    print("Number of unmatched reco jets per event: ", n_unmatched)
     df = df.Define("_stable_gen_particle_to_jet_mapping", "FCCAnalyses::ZHfunctions::get_reco_particle_jet_mapping(stable_gen_part_neutrinoFilter.size(), FastJet_jets);")
     # AK6 jets
     #df = get_jet_vars(df, "stable_gen_part_neutrinoFilter", name="FastJet_jets", is_ee_AK=True, AK_radius=0.6)
     #df = get_jet_vars(df, "ReconstructedParticles", name="FastJet_jets_reco", is_ee_AK=True, AK_radius=0.6)
-    df = df.Define("GenJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets, {})".format(nJets_processList[dataset]))
-    df = df.Define("RecoJetFastJet", "FCCAnalyses::ZHfunctions::fastjet_to_vec_rp_jet(FastJet_jets_reco, {})".format(nJets_processList[dataset]))
+
     df = df.Define("_serialized_evt_gen", "FCCAnalyses::Utils::serialize_event(stable_gen_part_neutrinoFilter);")
     #df = df.Define("")  # JET CLUSTERING HERE
     #df = get_jet_vars(df, "ReconstructedParticles", N_durham=2)
@@ -290,8 +327,8 @@ def build_graph(df, dataset):
     for event_idx in range(len(l)):
         ##assert n_unmatched[event_idx]  ==  len([x for x in l[event_idx] if x < 0]), "n_unmatched does not match the length of unmatched jets!:" + str(n_unmatched[event_idx]) + " vs " + str(len([x for x in l[event_idx] if x < 0]))
         if plot_filter(l[event_idx], n_unmatched[event_idx], inv_mass_reco_higgs[event_idx], E_matched_jets[event_idx] , idx=PLOT_IDX):
-            if global_event_idx.get(dataset, 0) > 10:
-                return [], weightsum # Just plot 10 events... #
+            if global_event_idx.get(dataset, 0) > 5:
+                return [], weightsum # Just plot the first X events
             #event_idx = # I want an event idx that is unique per dataset, even with multiple input root files. How do I do this?
             #print("Plotting event idx ", global_event_idx.get(dataset, 0), " from dataset ", dataset)
             eta, phi, pt = tonumpy["_serialized_evt_eta"][event_idx], tonumpy["_serialized_evt_phi"][event_idx], tonumpy["_serialized_evt_pt"][event_idx]
@@ -302,22 +339,23 @@ def build_graph(df, dataset):
             vec_mc = Vec_RP(eta=etamc, phi=phimc, pt=ptmc, pdg=tonumpy["_serialized_evt_gen_PDG"][event_idx], jets=stable_gen_particle_to_jet) #, txt=[str(pdg) for pdg in tonumpy["_serialized_evt_gen_PDG"][event_idx]])
             jets_eta, jets_phi, jets_pt = tonumpy["_serialized_jets_eta"][event_idx], tonumpy["_serialized_jets_phi"][event_idx], tonumpy["_serialized_jets_pt"][event_idx]
             jets_m = tonumpy["_serialized_jets_m"][event_idx]
+            print("jets_m", jets_m)
             #jets_text = l[event_idx]
             jets_text = [f"pt={round(jets_pt[i], 2)}e={round(jets_eta[i], 2)}ph={round(jets_phi[i], 2)}m={round(jets_m[i], 2)}" for i in range(len(jets_eta))]
-            vec_jets = Vec_RP(eta=jets_eta, phi=jets_phi, pt=jets_pt)#, txt=jets_text)
+            vec_jets = Vec_RP(eta=jets_eta, phi=jets_phi, pt=jets_pt, m=jets_m)#, txt=jets_text)
             gt_eta, gt_phi, gt_pt = tonumpy["_serialized_initial_partons_eta"][event_idx], tonumpy["_serialized_initial_partons_phi"][event_idx], tonumpy["_serialized_initial_partons_pt"][event_idx]
             vec_gt = Vec_RP(eta=gt_eta, phi=gt_phi, pt=gt_pt)
             genjets_eta, genjets_phi, genjets_pt = tonumpy["_serialized_genjets_eta"][event_idx], tonumpy["_serialized_genjets_phi"][event_idx], tonumpy["_serialized_genjets_pt"][event_idx]
             vec_genjets = Vec_RP(eta=genjets_eta, phi=genjets_phi, pt=genjets_pt)
             mcpart_eta, mcpart_phi, mcpart_pt = tonumpy["MCparts_eta"][event_idx], tonumpy["MCparts_phi"][event_idx], tonumpy["MCparts_pt"][event_idx]
             vec_mcparts = Vec_RP(eta=mcpart_eta, phi=mcpart_phi, pt=mcpart_pt)
-            print("Length of initial partons: ", len(mcpart_eta), "Length of MC parton idx: ", len(mcPart_idx[event_idx]))
+            #print("Length of initial partons: ", len(mcpart_eta), "Length of MC parton idx: ", len(mcPart_idx[event_idx]))
             calohits_eta, calohits_phi = tonumpy["_calohits_eta"][event_idx], tonumpy["_calohits_phi"][event_idx]
             calohits_pt = np.ones(len(calohits_eta)) * 5  # Dummy pt for calohits (for some reason energy is not being stored)
             vec_calohits = Vec_RP(eta=calohits_eta, phi=calohits_phi, pt=calohits_pt)
             vec_calojets = Vec_RP(eta=tonumpy["_serialized_calojets_eta"][event_idx], phi=tonumpy["_serialized_calojets_phi"][event_idx],
                                   pt=tonumpy["_serialized_calojets_pt"][event_idx])
-            print("Vec calohits: eta : ", calohits_eta[:5], " phi: ", calohits_phi[:5], " pt: ", calohits_pt[:5])
+            #print("Vec calohits: eta : ", calohits_eta[:5], " phi: ", calohits_phi[:5], " pt: ", calohits_pt[:5])
             #gj_fccanalysis_eta, gj_fccanalysis_phi, gj_fccanalysis_pt = tonumpy["fj_eta"][event_idx], tonumpy["fj_phi"][event_idx], tonumpy["fj_pt"][event_idx]
             #vec_genjets_fccanalysis = Vec_RP(eta=gj_fccanalysis_eta, phi=gj_fccanalysis_phi, pt=gj_fccanalysis_pt)
             event = Event(vec_rp=vec_rp, vec_mc=vec_mc, additional_collections={

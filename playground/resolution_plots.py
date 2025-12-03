@@ -103,8 +103,8 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
         s =  np.sum(theHist * np.diff(bin_edges))
         if s != 0:
             theHist /= s  # normalize the histogram to 1
-        wmin = 0.85
-        wmax = 1.15
+        wmin = 0.7
+        wmax = 1.2
         weight = 0.0
         points = []
         sums = []
@@ -113,8 +113,10 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
         # Fill list of bin centers and the integral up to those point
         for i in range(len(bin_edges) - 1):
             weight += theHist[i] * (bin_edges[i + 1] - bin_edges[i])
-            points.append([(bin_edges[i + 1] + bin_edges[i]) / 2, weight])
             sums.append(weight)
+            if bin_edges[i + 1] < wmin or bin_edges[i] > wmax:
+                continue
+            points.append([(bin_edges[i + 1] + bin_edges[i]) / 2, weight])
         low = wmin
         high = wmax
         width = 100
@@ -127,7 +129,7 @@ def get_result_for_process(procname, bins=binsE, suffix="", sigma_method="std68"
                         low = points[i][0]
                         high = points[j][0]
                         width = wx
-        if low == 0.85 and high == 1.15:
+        if low == wmin and high == wmax:
             # Didn't fit well, try mean and stdev
             # Compute the stdev from the histogram
             std68 = 0.0

@@ -200,11 +200,11 @@ def build_graph(df, dataset):
     df = df.Define("reco_mc_links",
                    "FCCAnalyses::ZHfunctions::getRP2MC_index(_RecoMCLink_from.index, _RecoMCLink_to.index, ReconstructedParticlesEtaFilter, Particle, ReconstructedParticlesToEtaFilterRPIndex)")
     df = df.Define("mc2rp", "reco_mc_links.second")
-    # For Durham:
+    # For Durham:slac
     if os.environ.get("JET_ALGO", "durham").lower() == "durham":
         df = get_jet_vars(df, "stable_gen_particles", N_durham=nJets_processList[dataset], name="FastJet_jets")
         if os.environ.get("MATCH_RECO_JETS", "0") == "1":
-            # if set to 1, it will use reco jets that are made out of the particles matched to the gen jet constituents
+            # if set to 1, it will use reco jets that are made out of the particles matched to the genslac uni jet constituents
             print("No reco clustering - simply match gen jet constituents to corresponding reco particles")
             df = get_jet_vars_from_genjet_matching(df, name="FastJet_jets_reco", genjet_name="FastJet_jets")
         else:
@@ -259,13 +259,14 @@ def build_graph(df, dataset):
     df = df.Define("inv_mass_all_gen_particles_BeforeFiltering", "FCCAnalyses::ZHfunctions::invariant_mass(stable_gen_particles);")
     h_mH_all_stable_part_Before_Filter = df.Histo1D(
         ("h_mH_all_stable_part_BeforeFiltering", "Invariant mass of all particles; Minv; Events", 250, 0, 250),
-        "inv_mass_all_gen_particles")
+        "inv_mass_all_gen_particles_BeforeFiltering")
     # Do the invariant mass of all reco particles
     df = df.Define("inv_mass_all_reco_particles_BeforeFiltering",
                    "FCCAnalyses::ZHfunctions::invariant_mass(ReconstructedParticlesEtaFilter);")
     hist_m_all_reco_particles_Before_Filter = df.Histo1D(
-        ("inv_mass_all_reco_particles_BeforeFiltering", "Invariant mass of all reco particles; Minv; Events", 250, 0, 250),
-        "inv_mass_all_reco_particles")
+        ("h_inv_mass_all_reco_particles_BeforeFiltering", "Invariant mass of all reco particles; Minv; Events", 250, 0, 250),
+        "inv_mass_all_reco_particles_BeforeFiltering")
+
     outputs_before_filtering = [h_mH_all_stable_part_Before_Filter, hist_m_all_reco_particles_Before_Filter]
     if Fully_Matched_Only:
         # filter by matched_genjet_energies.size() == genjet_energies.size() && genjet_energies.size() == nJets_processList[dataset]
