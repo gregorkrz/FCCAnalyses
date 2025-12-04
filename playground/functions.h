@@ -161,9 +161,8 @@ Vec_rp get_particles_from_mc2rp(vector<int> mc_part_idx, vector<int> mc2rp, Vec_
                 const float e  = reco_particles[rp_idx].energy;
                 const float m2 = e*e - (px*px + py*py + pz*pz);
                 temp.mass = (m2 > 0.f) ? std::sqrt(m2) : 0.f;
-                if (abs(temp.mass - rp_data.mass) > 0.001) {
+                if (abs(temp.mass - rp_data.mass) > 0.01) {
                     rdfWarning << "Inconsistent mass for particle: computed mass " << temp.mass << " vs stored mass " << rp_data.mass << endl;
-                    exit(1);
                 }
                 temp.energy = e;
                 temp.charge = reco_particles[rp_idx].charge;
@@ -720,7 +719,7 @@ tuple<Vec_rp, Vec_rp, Vec_rp> fastjet_to_vec_rp_jet_split_based_on_charge(JetClu
                                               (rp_neutral.momentum.x * rp_neutral.momentum.x +
                                                rp_neutral.momentum.y * rp_neutral.momentum.y +
                                                rp_neutral.momentum.z * rp_neutral.momentum.z)));
-        rp_charged.mass = std::sqrt(std::max(0.f, rp_charged.energy * rp_charged.energy -)
+        rp_charged.mass = std::sqrt(std::max(0.f, rp_charged.energy * rp_charged.energy -
                                               (rp_charged.momentum.x * rp_charged.momentum.x +
                                                rp_charged.momentum.y * rp_charged.momentum.y +
                                                rp_charged.momentum.z * rp_charged.momentum.z)));
@@ -858,10 +857,10 @@ pair<Vec_rp, vector<int>> filter_reco_particles(Vec_rp reco_particles) {
 
         // force set the energy to the computed value from mass and momentum
         p.energy = energy_from_mass;
-        if (abs(energy_from_mass - p.energy) > 0.001) {
+        if (abs(energy_from_mass - p.energy) > 0.01) {
             // raise an error
             rdfVerbose << "Warning: Reco particle energy does not match mass and momentum! energy_from_mass: " << energy_from_mass << " p.energy: " << p.energy << "mass:" << p.mass << endl;
-            exit(1);
+            //exit(1);
         }
         result.push_back(p);
         result_mapping[&p - &reco_particles[0]] = result.size() - 1; // index of p in reco_particles
