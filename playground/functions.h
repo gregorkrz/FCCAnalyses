@@ -857,11 +857,6 @@ pair<Vec_rp, vector<int>> filter_reco_particles(Vec_rp reco_particles) {
 
         // force set the energy to the computed value from mass and momentum
         p.energy = energy_from_mass;
-        if (abs(energy_from_mass - p.energy) > 0.01) {
-            // raise an error
-            rdfVerbose << "Warning: Reco particle energy does not match mass and momentum! energy_from_mass: " << energy_from_mass << " p.energy: " << p.energy << "mass:" << p.mass << endl;
-            //exit(1);
-        }
         result.push_back(p);
         result_mapping[&p - &reco_particles[0]] = result.size() - 1; // index of p in reco_particles
     }

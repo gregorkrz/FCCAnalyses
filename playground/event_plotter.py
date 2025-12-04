@@ -249,6 +249,7 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_evt_phi", "std::get<1>(_serialized_evt);")
     df = df.Define("_serialized_evt_pt", "std::get<2>(_serialized_evt);")
     df = df.Define("_serialized_evt_PDG", "std::get<3>(_serialized_evt);")
+    df = df.Define("_serialized_evt_mass", "std::get<4>(_serialized_evt);")
     df = df.Define("_serialized_calojets_eta", "std::get<0>(_serialized_calo_jets);")
     df = df.Define("_serialized_calojets_phi", "std::get<1>(_serialized_calo_jets);")
     df = df.Define("_serialized_calojets_pt", "std::get<2>(_serialized_calo_jets);")
@@ -256,6 +257,7 @@ def build_graph(df, dataset):
     df = df.Define("_serialized_evt_gen_phi", "std::get<1>(_serialized_evt_gen);")
     df = df.Define("_serialized_evt_gen_pt", "std::get<2>(_serialized_evt_gen);")
     df = df.Define("_serialized_evt_gen_PDG", "std::get<3>(_serialized_evt_gen);")
+    df = df.Define("_serialized_evt_gen_mass", "std::get<4>(_serialized_evt_gen);")
     df = df.Define("_serialized_jets_eta", "std::get<0>(_serialized_jets);")
     df = df.Define("_serialized_jets_phi", "std::get<1>(_serialized_jets);")
     df = df.Define("_serialized_jets_pt", "std::get<2>(_serialized_jets);")
@@ -280,12 +282,12 @@ def build_graph(df, dataset):
     df = df.Define("MCparts_phi", "std::get<1>(MCparts);")
     df = df.Define("MCparts_pt", "std::get<2>(MCparts);")
     df = df.Define("inv_mass_all_gen_particles", "FCCAnalyses::ZHfunctions::invariant_mass(stable_gen_part_neutrinoFilter);")
-    tonumpy = df.AsNumpy(["_serialized_evt_eta", "_serialized_evt_phi", "_serialized_evt_pt", "_serialized_jets_eta",
-                          "_serialized_jets_phi", "_serialized_jets_pt", "_serialized_initial_partons_eta",
+    tonumpy = df.AsNumpy(["_serialized_evt_eta", "_serialized_evt_phi", "_serialized_evt_pt", "_serialized_evt_mass",
+                          "_serialized_jets_eta", "_serialized_jets_phi", "_serialized_jets_pt", "_serialized_initial_partons_eta",
                           "_serialized_initial_partons_phi", "_serialized_initial_partons_pt", "_serialized_genjets_eta",
                           "_serialized_genjets_phi", "_serialized_genjets_pt", "_serialized_evt_gen_eta",
                           "_serialized_evt_gen_phi", "_serialized_evt_gen_pt", "MCparts_eta", "MCparts_phi", "MCparts_pt",
-                          "_serialized_evt_gen_PDG", "_calohits_eta", "_calohits_phi", "_calohits_pt", "_serialized_jets_m",
+                          "_serialized_evt_gen_PDG", "_serialized_evt_gen_mass",  "_calohits_eta", "_calohits_phi", "_calohits_pt", "_serialized_jets_m",
                           "MC_quark_index", "_serialized_calojets_eta", "_serialized_calojets_phi",
                           "_serialized_calojets_pt", "fancy_matching", "HardP_to_GenJet_mapping", "HardP_to_RecoJet_mapping",
                           "_serialized_evt_PDG", "_reco_particle_to_jet_mapping", "_stable_gen_particle_to_jet_mapping"])
@@ -303,6 +305,11 @@ def build_graph(df, dataset):
         "GenJetPT": list(df.AsNumpy(["_serialized_genjets_pt"])["_serialized_genjets_pt"]),
         "RecoJetPT": list(df.AsNumpy(["_serialized_jets_pt"])["_serialized_jets_pt"]),
     }
+    # print _serialized_evt_mass, _serialized_evt_gen_mass, and the PDG IDs for the first three events
+    print("_serialized_evt_mass (first 3 events):", [tonumpy["_serialized_evt_mass"][i] for i in range(3)])
+    print("_serialized_evt_PDG (first 3 events):", [tonumpy["_serialized_evt_PDG"][i] for i in range(3)])
+    print("_serialized_evt_gen_mass (first 3 events):", [tonumpy["_serialized_evt_gen_mass"][i] for i in range(3)])
+    print("_serialized_evt_gen_PDG (first 3 events):", [tonumpy["_serialized_evt_gen_PDG"][i] for i in range(3)])
     gen_jets_inv_mass = []
     gen_p_inv_mass = []
     #for event_idx in range(len(l)):
