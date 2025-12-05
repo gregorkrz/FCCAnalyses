@@ -285,7 +285,7 @@ def build_graph(df, dataset):
     print("ratio_jet_energies_matching_with_partons:", df.AsNumpy(["ratio_jet_energies_matching_with_partons"])["ratio_jet_energies_matching_with_partons"][:5])
     h_ratio_matching_with_partons = df.Histo1D(("h_ratio_matching_with_partons", "E_reco/E_parton;E_reco / E_parton;Events", 300, 0.5, 1.5), "ratio_jet_energies_matching_with_partons")
     df = df.Define("inv_mass_all_gen_particles", "FCCAnalyses::ZHfunctions::invariant_mass(stable_gen_particles);")
-    h_mH_all_stable_part = df.Histo1D(("h_mH_all_stable_part", "Invariant mass of all particles; Minv; Events", 100, 0, 250), "inv_mass_all_gen_particles")
+    h_mH_all_stable_part = df.Histo1D(("h_mH_all_stable_part", "Invariant mass of all particles; Minv; Events", 500, 0, 250), "inv_mass_all_gen_particles")
     h_mH_reco = df.Histo1D(("h_mH_reco", "Higgs mass from reco jets;M_H (reco jets);Events", 500, 0, 250), "inv_mass_reco")
     h_mH_gen = df.Histo1D(("h_mH_gen", "Higgs mass from gen jets;M_H (gen jets);Events", 500, 0, 250), "inv_mass_gen")
     h_mH_reco_core = df.Histo1D(("h_mH_reco_core", "Higgs mass from reco jets;M_H (reco jets);Events", 300, 75, 150), "inv_mass_reco")
@@ -300,3 +300,4 @@ def build_graph(df, dataset):
     h_mH_MC_part = df.Histo1D(("h_mH_MC_part", "Higgs mass from initial MC part.;M_H (MC part);Events", 500, 0, 250), "inv_mass_MC_part")
     results = results + [h_mH_stable_gt_particles, h_mH_reco_particles_matched, h_mH_MC_part]
     return results + histograms + [h_eta, h_eta_gen, h_ratio_matching_with_partons], weightsum
+

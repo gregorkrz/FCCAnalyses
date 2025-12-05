@@ -9,7 +9,6 @@ import os
 from event_displays import Vec_RP, Event
 from truth_matching import get_Higgs_mass_with_truth_matching
 from jet_helper import get_jet_vars, get_jet_vars_from_genjet_matching
-
 #inputDir = "/fs/ddn/sdf/group/atlas/d/gregork/fastsim/jetbenchmarks/"
 
 ### TEMPORARILY ###
